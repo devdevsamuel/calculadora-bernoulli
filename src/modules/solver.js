@@ -6,6 +6,16 @@ import {
   flowRegime,
 } from './losses.js';
 import { formatNumber } from './format.js';
+import {
+  STATUS,
+  SYMBOLS,
+  UNITS,
+  buildExplanation,
+  classifyFailure,
+  validateState,
+} from './explain.js';
+
+const nv = (value, decimals = 4, unit = '') => `${formatNumber(value, decimals)}${unit ? ` ${unit}` : ''}`;
 
 const BISECTION_MAX_ITER = 100;
 const BISECTION_TOL = 1e-12;
@@ -255,9 +265,17 @@ function residual(state, target, value) {
   const e1 = energyComponents(s, 1);
   const e2 = energyComponents(s, 2);
   if (!e1 || !e2) return null;
-  const loss = target === 'hL' || target === 'hf' || target === 'hm'
-    ? { hL: value }
-    : resolveHL(s);
+  let loss;
+  if (target === 'hL') {
+    loss = { hL: value };
+  } else if (target === 'hf' || target === 'hm') {
+    const split = lossSplit(s);
+    const partner = target === 'hf' ? split.hm : split.hf;
+    if (partner == null) return null;
+    loss = { hL: value + partner };
+  } else {
+    loss = resolveHL(s);
+  }
   if (loss.error) return null;
   const left = e1.H + (s.HB ?? 0);
   const right = e2.H + (s.HT ?? 0) + loss.hL;
@@ -340,7 +358,7 @@ function closedForm(state, target) {
       return {
         value: P2,
         formula: 'P₂ = γ·[z₁ − z₂ + P₁/γ + α₁·V₁²/(2g) − α₂·V₂²/(2g) + H_B − H_T − h_L]',
-        substitution: `P₂ = ${formatNumber(gamma, 2)}·[${formatNumber(p1.z)} − ${formatNumber(p2.z)} + ${formatNumber(hP1)} + ${formatNumber(vh1)} − ${formatNumber(vh2)} + ${formatNumber(HB)} − ${formatNumber(HT)} − ${formatNumber(hL)}]`,
+        substitution: `P₂ = ${nv(gamma, 2)} N/m³ · [${nv(p1.z)} m − ${nv(p2.z)} m + ${nv(hP1)} m + ${nv(vh1)} m − ${nv(vh2)} m + ${nv(HB)} m − ${nv(HT)} m − ${nv(hL)} m] = ${nv(P2, 2)} Pa`,
       };
     }
     case 'P1': {
@@ -360,7 +378,7 @@ function closedForm(state, target) {
       return {
         value: P1,
         formula: 'P₁ = γ·[z₂ − z₁ + P₂/γ + α₂·V₂²/(2g) − α₁·V₁²/(2g) + H_T + h_L − H_B]',
-        substitution: `P₁ = ${formatNumber(gamma, 2)}·[${formatNumber(p2.z)} − ${formatNumber(p1.z)} + ${formatNumber(hP2)} + ${formatNumber(vh2)} − ${formatNumber(vh1)} + ${formatNumber(HT)} + ${formatNumber(hL)} − ${formatNumber(HB)}]`,
+        substitution: `P₁ = ${nv(gamma, 2)} N/m³ · [${nv(p2.z)} m − ${nv(p1.z)} m + ${nv(hP2)} m + ${nv(vh2)} m − ${nv(vh1)} m + ${nv(HT)} m + ${nv(hL)} m − ${nv(HB)} m] = ${nv(P1, 2)} Pa`,
       };
     }
     case 'z2': {
@@ -379,7 +397,7 @@ function closedForm(state, target) {
       return {
         value: z2,
         formula: 'z₂ = z₁ + P₁/γ + α₁·V₁²/(2g) + H_B − P₂/γ − α₂·V₂²/(2g) − H_T − h_L',
-        substitution: `z₂ = ${formatNumber(p1.z)} + ${formatNumber(hP1)} + ${formatNumber(vh1)} + ${formatNumber(HB)} − ${formatNumber(hP2)} − ${formatNumber(vh2)} − ${formatNumber(HT)} − ${formatNumber(hL)}`,
+        substitution: `z₂ = ${nv(p1.z)} m + ${nv(hP1)} m + ${nv(vh1)} m + ${nv(HB)} m − ${nv(hP2)} m − ${nv(vh2)} m − ${nv(HT)} m − ${nv(hL)} m = ${nv(z2)} m`,
       };
     }
     case 'z1': {
@@ -398,21 +416,29 @@ function closedForm(state, target) {
       return {
         value: z1,
         formula: 'z₁ = z₂ + P₂/γ + α₂·V₂²/(2g) + H_T + h_L − H_B − P₁/γ − α₁·V₁²/(2g)',
-        substitution: `z₁ = ${formatNumber(p2.z)} + ${formatNumber(hP2)} + ${formatNumber(vh2)} + ${formatNumber(HT)} + ${formatNumber(hL)} − ${formatNumber(HB)} − ${formatNumber(hP1)} − ${formatNumber(vh1)}`,
+        substitution: `z₁ = ${nv(p2.z)} m + ${nv(hP2)} m + ${nv(vh2)} m + ${nv(HT)} m + ${nv(hL)} m − ${nv(HB)} m − ${nv(hP1)} m − ${nv(vh1)} m = ${nv(z1)} m`,
       };
     }
     case 'HB': {
-      if (!e1 || !e2 || hL == null) return { missing: ['z, P y V en ambos puntos, y h_L'] };
+      const missing = [];
+      if (!e1 || !e2) missing.push('z, P y V en ambos puntos');
+      if (hL == null) missing.push(lossInfo.error ?? 'pérdidas h_L (o datos de tubería)');
+      if (HT == null) missing.push('carga de turbina H_T');
+      if (missing.length) return { missing };
       const value = e2.H + HT + hL - e1.H;
       if (!Number.isFinite(value)) return { error: 'Resultado no finito para H_B.' };
       return {
         value,
         formula: 'H_B = H₂ + H_T + h_L − H₁',
-        substitution: `H_B = ${formatNumber(e2.H)} + ${formatNumber(HT)} + ${formatNumber(hL)} − ${formatNumber(e1.H)}`,
+        substitution: `H_B = ${nv(e2.H)} m + ${nv(HT)} m + ${nv(hL)} m − ${nv(e1.H)} m = ${nv(value)} m`,
       };
     }
     case 'HT': {
-      if (!e1 || !e2 || hL == null) return { missing: ['z, P y V en ambos puntos, y h_L'] };
+      const missing = [];
+      if (!e1 || !e2) missing.push('z, P y V en ambos puntos');
+      if (hL == null) missing.push(lossInfo.error ?? 'pérdidas h_L (o datos de tubería)');
+      if (HB == null) missing.push('carga de bomba H_B');
+      if (missing.length) return { missing };
       const value = e1.H + HB - e2.H - hL;
       if (!Number.isFinite(value)) return { error: 'Resultado no finito para H_T.' };
       return {
@@ -422,7 +448,11 @@ function closedForm(state, target) {
       };
     }
     case 'hL': {
-      if (!e1 || !e2) return { missing: ['z, P y V en ambos puntos'] };
+      const missing = [];
+      if (!e1 || !e2) missing.push('z, P y V en ambos puntos');
+      if (HB == null) missing.push('carga de bomba H_B');
+      if (HT == null) missing.push('carga de turbina H_T');
+      if (missing.length) return { missing };
       const value = e1.H + HB - e2.H - HT;
       if (!Number.isFinite(value)) return { error: 'Resultado no finito para h_L.' };
       if (value < 0) {
@@ -433,7 +463,7 @@ function closedForm(state, target) {
       return {
         value,
         formula: 'h_L = H₁ + H_B − H₂ − H_T',
-        substitution: `h_L = ${formatNumber(e1.H)} + ${formatNumber(HB)} − ${formatNumber(e2.H)} − ${formatNumber(HT)}`,
+        substitution: `h_L = ${nv(e1.H)} m + ${nv(HB)} m − ${nv(e2.H)} m − ${nv(HT)} m = ${nv(value)} m`,
         notes: ['Cuando h_L es la incógnita, las pérdidas ingresadas o la tubería no se usan como entrada; el valor automático (si existe) se muestra solo como comparación.'],
       };
     }
@@ -460,7 +490,7 @@ function closedForm(state, target) {
       return {
         value: V1,
         formula: 'V₁ = √(2g·S/α₁), con S = H₂ + H_T + h_L − H_B − z₁ − P₁/γ',
-        substitution: `S = ${formatNumber(e2.H)} + ${formatNumber(HT)} + ${formatNumber(hL)} − ${formatNumber(HB)} − ${formatNumber(p1.z)} − ${formatNumber(hP1)} = ${formatNumber(S)} → V₁ = √(2·${formatNumber(g, 5)}·${formatNumber(S)}/${formatNumber(alpha1)})`,
+        substitution: `S = ${nv(e2.H)} m + ${nv(HT)} m + ${nv(hL)} m − ${nv(HB)} m − ${nv(p1.z)} m − ${nv(hP1)} m = ${nv(S)} m → V₁ = √(2·${formatNumber(g, 5)} m/s²·${nv(S)} m/${formatNumber(alpha1)}) = ${nv(V1, 5)} m/s`,
       };
     }
     case 'V2': {
@@ -474,7 +504,7 @@ function closedForm(state, target) {
       if (HT == null) missing.push('carga de turbina H_T');
       if (hL == null) missing.push(lossInfo.error ?? 'pérdidas h_L (o datos de tubería)');
       if (missing.length) return { missing };
-      const S = p1.z + hP1 + vh1 + HB - HT - hL - p2.z;
+      const S = p1.z + hP1 + vh1 + HB - HT - hL - p2.z - hP2;
       if (S < 0) {
         return {
           error: 'El término S es negativo: no existe solución real para V₂ con estos datos (revisar energías y pérdidas).',
@@ -483,8 +513,8 @@ function closedForm(state, target) {
       const V2 = Math.sqrt((2 * g * S) / alpha2);
       return {
         value: V2,
-        formula: 'V₂ = √(2g·S/α₂), con S = z₁ + P₁/γ + α₁·V₁²/(2g) + H_B − H_T − h_L − z₂',
-        substitution: `S = ${formatNumber(p1.z)} + ${formatNumber(hP1)} + ${formatNumber(vh1)} + ${formatNumber(HB)} − ${formatNumber(HT)} − ${formatNumber(hL)} − ${formatNumber(p2.z)} = ${formatNumber(S)} → V₂ = √(2·${formatNumber(g, 5)}·${formatNumber(S)}/${formatNumber(alpha2)})`,
+        formula: 'V₂ = √(2g·S/α₂), con S = z₁ + P₁/γ + α₁·V₁²/(2g) + H_B − H_T − h_L − z₂ − P₂/γ',
+        substitution: `S = ${nv(p1.z)} m + ${nv(hP1)} m + ${nv(vh1)} m + ${nv(HB)} m − ${nv(HT)} m − ${nv(hL)} m − ${nv(p2.z)} m − ${nv(hP2)} m = ${nv(S)} m → V₂ = √(2·${formatNumber(g, 5)} m/s²·${nv(S)} m/${formatNumber(alpha2)}) = ${nv(V2, 5)} m/s`,
       };
     }
     case 'Q1':
@@ -505,7 +535,7 @@ function closedForm(state, target) {
         return {
           value: Q,
           formula: `Q${idx === 1 ? '₁' : '₂'} = V${idx === 1 ? '₁' : '₂'}·A${idx === 1 ? '₁' : '₂'}`,
-          substitution: `Q = ${formatNumber(V)} · ${formatNumber(p.A, 6)} = ${formatNumber(Q, 6)}`,
+          substitution: `Q = ${nv(V, 5)} m/s · ${nv(p.A, 6)} m² = ${nv(Q, 6)} m³/s`,
         };
       }
       if (kind === 'A') {
@@ -515,7 +545,7 @@ function closedForm(state, target) {
         return {
           value: A,
           formula: `A${idx === 1 ? '₁' : '₂'} = Q${idx === 1 ? '₁' : '₂'}/V${idx === 1 ? '₁' : '₂'}`,
-          substitution: `A = ${formatNumber(p.Q, 6)} / ${formatNumber(V)} = ${formatNumber(A, 6)}`,
+          substitution: `A = ${nv(p.Q, 6)} m³/s / ${nv(V, 5)} m/s = ${nv(A, 6)} m²`,
         };
       }
       if (p.Q == null) return { missing: [`caudal Q${idx}`] };
@@ -524,7 +554,7 @@ function closedForm(state, target) {
       return {
         value: D,
         formula: `D${idx === 1 ? '₁' : '₂'} = √(4·Q${idx === 1 ? '₁' : '₂'}/(π·V${idx === 1 ? '₁' : '₂'}))`,
-        substitution: `D = √(4·${formatNumber(p.Q, 6)}/(π·${formatNumber(V)})) = ${formatNumber(D, 6)}`,
+        substitution: `D = √(4·${nv(p.Q, 6)} m³/s / (π·${nv(V, 5)} m/s)) = ${nv(D, 6)} m`,
       };
     }
     case 'hf': {
@@ -538,7 +568,7 @@ function closedForm(state, target) {
       return {
         value: hf,
         formula: 'h_f = h_L − h_m, con h_L = H₁ + H_B − H₂ − H_T',
-        substitution: `h_L = ${formatNumber(bal.hL)} → h_f = ${formatNumber(bal.hL)} − ${formatNumber(split.hm)} = ${formatNumber(hf)}`,
+        substitution: `h_L = ${nv(bal.hL)} m → h_f = ${nv(bal.hL)} m − ${nv(split.hm)} m = ${nv(hf)} m`,
       };
     }
     case 'hm': {
@@ -554,7 +584,7 @@ function closedForm(state, target) {
       return {
         value: hm,
         formula: 'h_m = h_L − h_f, con h_L = H₁ + H_B − H₂ − H_T',
-        substitution: `h_L = ${formatNumber(bal.hL)} → h_m = ${formatNumber(bal.hL)} − ${formatNumber(split.hf)} = ${formatNumber(hm)}`,
+        substitution: `h_L = ${nv(bal.hL)} m → h_m = ${nv(bal.hL)} m − ${nv(split.hf)} m = ${nv(hm)} m`,
       };
     }
     case 'sumK': {
@@ -571,7 +601,7 @@ function closedForm(state, target) {
       return {
         value: sumK,
         formula: 'ΣK = h_m/(V²/2g), con h_m = h_L − h_f',
-        substitution: `h_m = ${formatNumber(bal.hL)} − ${formatNumber(split.hf)} = ${formatNumber(hm)} → ΣK = ${formatNumber(hm)} / ${formatNumber(split.vh)} = ${formatNumber(sumK)}`,
+        substitution: `h_m = ${nv(bal.hL)} m − ${nv(split.hf)} m = ${nv(hm)} m → ΣK = ${nv(hm)} m / ${nv(split.vh)} m = ${nv(sumK, 6)} (adimensional)`,
       };
     }
     case 'L': {
@@ -596,7 +626,7 @@ function closedForm(state, target) {
       return {
         value: L,
         formula: 'L = h_f·D/(f·V²/2g), con h_f = h_L − h_m',
-        substitution: `h_f = ${formatNumber(hf)} → L = ${formatNumber(hf)}·${formatNumber(split.D)} / (${formatNumber(f, 6)}·${formatNumber(split.vh)}) = ${formatNumber(L)}`,
+        substitution: `h_f = ${nv(hf)} m → L = ${nv(hf)} m · ${nv(split.D)} m / (${nv(f, 6)} · ${nv(split.vh)} m) = ${nv(L)} m`,
       };
     }
     case 'f': {
@@ -614,7 +644,7 @@ function closedForm(state, target) {
       return {
         value: f,
         formula: 'f = h_f·D/(L·V²/2g), con h_f = h_L − h_m',
-        substitution: `h_f = ${formatNumber(hf)} → f = ${formatNumber(hf)}·${formatNumber(split.D)} / (${formatNumber(pipe.L)}·${formatNumber(split.vh)}) = ${formatNumber(f, 6)}`,
+        substitution: `h_f = ${nv(hf)} m → f = ${nv(hf)} m · ${nv(split.D)} m / (${nv(pipe.L)} m · ${nv(split.vh)} m) = ${nv(f, 6)} (adimensional, Darcy)`,
         notes: ['El factor f corresponde al factor de Darcy (no al de Fanning).'],
       };
     }
@@ -627,7 +657,7 @@ function closedForm(state, target) {
       return {
         value: Re,
         formula: 'Re = V·D/ν',
-        substitution: `Re = ${formatNumber(V)} · ${formatNumber(D)} / ${s.fluid.nu.toExponential(3)} = ${formatNumber(Re, 0)}`,
+        substitution: `Re = ${nv(V, 5)} m/s · ${nv(D, 6)} m / ${s.fluid.nu.toExponential(3)} m²/s = ${nv(Re, 0)} (adimensional)`,
       };
     }
     default:
@@ -644,80 +674,326 @@ function rangeForTarget(target) {
 
 const NUMERIC_TARGETS = new Set(['V1', 'V2', 'Q1', 'Q2', 'A1', 'A2', 'D1', 'D2']);
 
+const DIRECT_TARGETS = new Set(['Re']);
+
+const SCAN_SAMPLES = 160;
+
+const SIGN_CONDITION = {
+  V1: 'La ecuación de energía depende de V₁ solo a través de α₁·V₁²/(2g), así que admite ±V₁. La raíz positiva corresponde al sentido 1→2 supuesto; la negativa describe flujo en sentido contrario. Para determinar cuál corresponde, fije el signo de la velocidad (sentido del flujo) en el tramo.',
+  V2: 'La ecuación de energía depende de V₂ solo a través de α₂·V₂²/(2g), así que admite ±V₂. La raíz positiva corresponde al sentido 1→2 supuesto; la negativa describe flujo en sentido contrario. Para determinar cuál corresponde, fije el signo de la velocidad (sentido del flujo) en el tramo.',
+  Q1: 'La energía depende del caudal solo vía V₁ = Q₁/A₁ dentro de α₁·V₁²/(2g): ±Q₁ cumplen el balance. Elija según el sentido real del flujo (convención: Q > 0 de 1 a 2).',
+  Q2: 'La energía depende del caudal solo vía V₂ = Q₂/A₂ dentro de α₂·V₂²/(2g): ±Q₂ cumplen el balance. Elija según el sentido real del flujo (convención: Q > 0 de 1 a 2).',
+  D1: 'La energía depende del diámetro solo vía A₁ = π·D₁²/4, por lo que ±D₁ producen el mismo resultado. Se adopta D > 0 porque el diámetro es una longitud positiva (dominio geométrico).',
+  D2: 'La energía depende del diámetro solo vía A₂ = π·D₂²/4, por lo que ±D₂ producen el mismo resultado. Se adopta D > 0 porque el diámetro es una longitud positiva (dominio geométrico).',
+  A1: 'La energía depende del área solo vía V₁ = Q₁/A₁ dentro de α₁·V₁²/(2g): ±A₁ producen el mismo V₁². Se adopta A > 0 (dominio geométrico).',
+  A2: 'La energía depende del área solo vía V₂ = Q₂/A₂ dentro de α₂·V₂²/(2g): ±A₂ producen el mismo V₂². Se adopta A > 0 (dominio geométrico).',
+};
+
+const NUMERIC_CONDITION =
+  'Raíz adicional del balance de energía en el rango de búsqueda: satisface la ecuación con los mismos datos. Ninguna raíz es preferida por la información disponible; para determinar cuál corresponde, verifique un dato adicional (sentido/medida del caudal o el rango esperado de la variable).';
+
+function residualTolerance(model) {
+  const e1 = model?.points?.[1]?.energy;
+  const e2 = model?.points?.[2]?.energy;
+  const scale = e1 && e2 ? Math.max(Math.abs(e1.H), Math.abs(e2.H), 1) : 1;
+  return 1e-6 + 1e-8 * scale;
+}
+
+function evaluateCandidate(state, target, value, model) {
+  let R = null;
+  try {
+    R = residual(state, target, value);
+  } catch (err) {
+    return { holds: false, rejection: `la raíz no es evaluable en el modelo (${err.message})` };
+  }
+  if (R === null) {
+    return {
+      holds: false,
+      rejection: 'la raíz queda fuera del dominio del modelo (se requieren D > 0 y A > 0 para derivar área y velocidad); no es una solución admisible',
+    };
+  }
+  if (Math.abs(R) <= residualTolerance(model)) return { holds: true };
+  return {
+    holds: false,
+    rejection: `no satisface el balance con el modelo actual (residuo = ${formatNumber(R, 6)} m: las pérdidas o la continuidad del modelo no son simétricas respecto al signo)`,
+  };
+}
+
+function findExtraRoots(state, target, { min, max }, primary) {
+  if (!(min > 0) || !(max > min)) return [];
+  const n = SCAN_SAMPLES;
+  const ratio = Math.pow(max / min, 1 / n);
+  const xs = new Array(n + 1);
+  const rs = new Array(n + 1);
+  for (let i = 0; i <= n; i += 1) {
+    xs[i] = min * Math.pow(ratio, i);
+    rs[i] = residual(state, target, xs[i]);
+  }
+  const found = [];
+  for (let i = 0; i < n; i += 1) {
+    const a = rs[i];
+    const b = rs[i + 1];
+    if (a === null || b === null) continue;
+    if (a === 0) {
+      found.push(xs[i]);
+      continue;
+    }
+    if (a * b < 0) {
+      const r = bisect(state, target, { min: xs[i], max: xs[i + 1] });
+      if (r.value !== undefined && Number.isFinite(r.value)) found.push(r.value);
+    }
+  }
+  if (rs[n] === 0) found.push(xs[n]);
+  const close = (u, v) => Math.abs(u - v) <= 1e-6 * Math.max(1, Math.abs(u), Math.abs(v));
+  const out = [];
+  for (const r of found) {
+    if (close(r, primary)) continue;
+    if (!out.some((o) => close(o, r))) out.push(r);
+  }
+  return out;
+}
+
+function collectAlternatives(state, target, primary, model) {
+  const alternatives = [];
+  if (!Number.isFinite(primary)) return alternatives;
+  if (SIGN_CONDITION[target]) {
+    const check = evaluateCandidate(state, target, -primary, model);
+    alternatives.push({
+      value: -primary,
+      unit: UNITS[target] ?? null,
+      condition: SIGN_CONDITION[target],
+      holds: check.holds,
+      rejection: check.rejection ?? null,
+    });
+  }
+  const range = rangeForTarget(target);
+  if (range) {
+    for (const root of findExtraRoots(state, target, range, primary)) {
+      alternatives.push({
+        value: root,
+        unit: UNITS[target] ?? null,
+        condition: NUMERIC_CONDITION,
+        holds: true,
+        rejection: null,
+      });
+    }
+  }
+  return alternatives;
+}
+
+function failureResult({ status, target, state, model = null, error = null, missing = null }) {
+  let m = model;
+  if (!m) {
+    try {
+      m = buildModel(state);
+    } catch {
+      m = null;
+    }
+  }
+  const explanation = buildExplanation({
+    state,
+    model: m,
+    target,
+    status,
+    ok: false,
+    missing: missing ?? [],
+    error,
+    alternatives: [],
+  });
+  const out = { ok: false, status, target, explanation };
+  if (missing) out.missing = missing;
+  if (error) out.error = error;
+  if (m) out.model = m;
+  return out;
+}
+
+function successResult({ state, model, target, value, formula, substitution, notes, numerical = false, iterations = null }) {
+  let finalModel = model;
+  try {
+    finalModel = buildModel(applyUnknown(state, target, value));
+  } catch {
+    finalModel = model;
+  }
+  const alternatives = collectAlternatives(state, target, value, model);
+  const holds = alternatives.filter((a) => a.holds);
+  const status = holds.length ? STATUS.MULTIPLES : STATUS.UNICO;
+  const prepended = [];
+  if (holds.length) {
+    prepended.push(`Existen ${holds.length + 1} soluciones matemáticamente válidas con los mismos datos: se muestra una de ellas y se listan las alternativas con las condiciones para discriminarlas.`);
+  }
+  const allNotes = [...prepended, ...(notes ?? [])];
+  const explanation = buildExplanation({
+    state,
+    model: finalModel,
+    target,
+    status,
+    ok: true,
+    value,
+    formula,
+    substitution,
+    notes: allNotes,
+    missing: [],
+    error: null,
+    alternatives,
+    numerical,
+    iterations,
+  });
+  const out = {
+    ok: true,
+    status,
+    value,
+    unit: UNITS[target] ?? null,
+    formula,
+    substitution,
+    notes: allNotes,
+    alternatives,
+    explanation,
+    target,
+    model,
+  };
+  if (numerical) {
+    out.numerical = true;
+    out.iterations = iterations;
+  }
+  return out;
+}
+
 export function solve(state) {
   const target = state.unknown;
   if (!UNKNOWN_IDS.includes(target)) {
-    return { ok: false, error: `Seleccione una incógnita válida (recibido: ${target}).`, target };
+    return failureResult({
+      status: STATUS.INVALIDO,
+      target,
+      state,
+      error: `Seleccione una incógnita válida (recibido: ${target}).`,
+    });
+  }
+  const problems = validateState(state);
+  if (problems.length) {
+    return failureResult({
+      status: STATUS.INVALIDO,
+      target,
+      state,
+      error: `Datos inválidos: ${problems.join(' · ')}`,
+    });
   }
   let model;
   try {
     model = buildModel(state);
   } catch (err) {
-    return { ok: false, error: err.message, target };
+    return failureResult({ status: STATUS.INVALIDO, target, state, error: err.message });
   }
   const base = closedForm(state, target);
   if (!NUMERIC_TARGETS.has(target)) {
     if (base.missing) {
-      return { ok: false, missing: base.missing, target, model };
+      return failureResult({
+        status: classifyFailure({ missing: base.missing, error: base.error }),
+        target,
+        state,
+        model,
+        missing: base.missing,
+        error: base.error ?? null,
+      });
     }
     if (base.error) {
-      return { ok: false, error: base.error, target, model };
+      return failureResult({
+        status: classifyFailure({ error: base.error }),
+        target,
+        state,
+        model,
+        error: base.error,
+      });
     }
   }
   if (base.value !== undefined && Number.isFinite(base.value)) {
-    const R = residual(state, target, base.value);
-    if (R === null) {
-      return { ok: false, error: 'No se pudo evaluar el balance con el resultado obtenido.', target, model };
-    }
-    const e1 = model.points[1].energy;
-    const e2 = model.points[2].energy;
-    const scale = e1 && e2 ? Math.max(Math.abs(e1.H), Math.abs(e2.H), 1) : 1;
-    const consistent = Math.abs(R) <= 1e-6 + 1e-8 * scale;
-    if (consistent) {
-      return {
-        ok: true,
+    if (DIRECT_TARGETS.has(target)) {
+      return successResult({
+        state,
+        model,
+        target,
         value: base.value,
         formula: base.formula,
         substitution: base.substitution,
         notes: base.notes ?? [],
+      });
+    }
+    const R = residual(state, target, base.value);
+    if (R === null) {
+      return failureResult({
+        status: STATUS.IMPOSIBLE,
         target,
+        state,
         model,
-      };
+        error: 'No se pudo evaluar el balance con el resultado obtenido.',
+      });
+    }
+    if (Math.abs(R) <= residualTolerance(model)) {
+      return successResult({
+        state,
+        model,
+        target,
+        value: base.value,
+        formula: base.formula,
+        substitution: base.substitution,
+        notes: base.notes ?? [],
+      });
     }
   }
   const range = rangeForTarget(target);
   if (!range) {
+    const error = base.error ?? 'No se pudo resolver la incógnita con los datos disponibles.';
     if (base.missing) {
-      return { ok: false, missing: base.missing, target, model };
+      return failureResult({
+        status: classifyFailure({ missing: base.missing, error: base.error }),
+        target,
+        state,
+        model,
+        missing: base.missing,
+        error: base.error ?? null,
+      });
     }
-    return {
-      ok: false,
-      error: base.error ?? 'No se pudo resolver la incógnita con los datos disponibles.',
+    return failureResult({
+      status: classifyFailure({ error }),
       target,
+      state,
       model,
-    };
+      error,
+    });
   }
   const result = bisect(state, target, range);
   if (result.error) {
     if (base.missing) {
-      return { ok: false, missing: base.missing, target, model };
+      return failureResult({
+        status: classifyFailure({ missing: base.missing }),
+        target,
+        state,
+        model,
+        missing: base.missing,
+      });
     }
-    return { ok: false, error: base.error ?? result.error, target, model };
+    const error = base.error ?? result.error;
+    return failureResult({
+      status: classifyFailure({ error }),
+      target,
+      state,
+      model,
+      error,
+    });
   }
   const cf = closedForm(applyUnknown(state, target, result.value), target);
-  return {
-    ok: true,
+  return successResult({
+    state,
+    model,
+    target,
     value: result.value,
     formula: cf.formula ?? 'Solución numérica del balance de energía (bisección)',
     substitution: cf.substitution
-      ?? `x ≈ ${formatNumber(result.value)} tras ${result.iterations} iteraciones de bisección`,
+      ?? `${SYMBOLS[target] ?? target} ≈ ${nv(result.value)}${UNITS[target] && !UNITS[target].startsWith('(') ? ` ${UNITS[target]}` : ''} tras ${result.iterations} iteraciones de bisección (raíz del balance en el rango de búsqueda)`,
     notes: [
       'La solución requirió un método numérico (bisección) porque la incógnita afecta de forma no lineal a las pérdidas o a las velocidades.',
       ...(cf.notes ?? []),
     ],
-    target,
-    model,
     numerical: true,
     iterations: result.iterations,
-  };
+  });
 }

@@ -8,87 +8,121 @@
       content="Calculadora universal de la ecuación de Bernoulli para ingeniería civil: despejes, conversiones de unidades, pérdidas de carga y perfil hidráulico."
     />
     <title>Calculadora de la ecuación de Bernoulli</title>
+    <script>
+      try {
+        var t = localStorage.getItem('bernoulli-theme');
+        if (t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {
+        /* almacenamiento no disponible */
+      }
+    </script>
   </head>
-  <body class="min-h-screen bg-fondo text-texto">
+  <body class="min-h-screen bg-page text-ink">
     <a
       href="#panel-calculadora"
-      class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-rosa-primario focus:px-3 focus:py-2 focus:text-white"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-accent-strong focus:px-3 focus:py-2 focus:text-on-accent"
       >Saltar al contenido</a
     >
 
-    <header class="border-b border-rosa-borde bg-white shadow-sm">
+    <header class="border-b border-line bg-surface">
       <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 class="text-xl font-bold text-rosa-primario sm:text-2xl">
+          <h1 class="text-xl font-bold text-accent sm:text-2xl">
             Calculadora de la ecuación de Bernoulli
           </h1>
-          <p class="mt-1 max-w-3xl text-sm text-texto/80">
+          <p class="mt-1 max-w-3xl text-sm text-ink-soft">
             Energía entre dos puntos: <em>H<sub>1</sub> + H<sub>B</sub> = H<sub>2</sub> + H<sub>T</sub> + h<sub>L</sub></em>.
             Hipótesis del modo básico: flujo permanente, fluido incompresible y α<sub>1</sub> = α<sub>2</sub> = 1 (editable).
           </p>
         </div>
-        <nav role="tablist" aria-label="Secciones de la aplicación" class="flex shrink-0 gap-2">
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+          <div role="tablist" aria-label="Secciones de la aplicación" class="flex flex-wrap items-center gap-2">
+            <button
+              id="tab-calculadora"
+              role="tab"
+              type="button"
+              aria-selected="true"
+              aria-controls="panel-calculadora"
+              tabindex="0"
+              class="tab-btn rounded border px-5 py-2 text-sm font-semibold"
+              data-panel="panel-calculadora"
+            >
+              Calculadora
+            </button>
+            <button
+              id="tab-guia"
+              role="tab"
+              type="button"
+              aria-selected="false"
+              aria-controls="panel-guia"
+              tabindex="-1"
+              class="tab-btn rounded border px-5 py-2 text-sm font-semibold"
+              data-panel="panel-guia"
+            >
+              Guía
+            </button>
+          </div>
           <button
-            id="tab-calculadora"
-            role="tab"
+            id="btn-tema"
             type="button"
-            aria-selected="true"
-            aria-controls="panel-calculadora"
-            class="tab-btn rounded-t-md border border-b-0 px-5 py-2 text-sm font-semibold"
-            data-panel="panel-calculadora"
+            aria-label="Alternar entre modo claro y modo oscuro"
+            aria-pressed="false"
+            class="rounded border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink hover:bg-surface-2 sm:py-1.5"
           >
-            Calculadora
+            <span id="btn-tema-icono" aria-hidden="true">☾</span>
+            <span id="btn-tema-texto">Oscuro</span>
           </button>
-          <button
-            id="tab-guia"
-            role="tab"
-            type="button"
-            aria-selected="false"
-            aria-controls="panel-guia"
-            class="tab-btn rounded-t-md border border-b-0 px-5 py-2 text-sm font-semibold"
-            data-panel="panel-guia"
-          >
-            Guía
-          </button>
-        </nav>
+        </div>
       </div>
     </header>
 
     <main class="mx-auto max-w-7xl px-4 py-4">
       <!-- ==================== PESTAÑA CALCULADORA ==================== -->
-      <section id="panel-calculadora" role="tabpanel" aria-labelledby="tab-calculadora" class="space-y-4">
+      <section
+        id="panel-calculadora"
+        role="tabpanel"
+        aria-labelledby="tab-calculadora"
+        tabindex="-1"
+        class="space-y-4"
+      >
         <!-- Resultado principal -->
         <section
           aria-labelledby="titulo-resultado"
-          class="rounded-md border border-rosa-borde bg-white shadow-sm"
+          class="rounded-md border border-line bg-surface"
         >
           <h2 id="titulo-resultado" class="sr-only">Resultado principal</h2>
-          <div class="flex flex-col gap-3 rounded-t-md bg-rosa-primario px-4 py-3 text-white md:flex-row md:items-center md:justify-between">
+          <div class="franja-resultado flex flex-col gap-3 rounded-t-md bg-accent-strong px-4 py-3 text-on-accent md:flex-row md:items-center md:justify-between">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
               <label for="incognita" class="text-sm font-semibold">Incógnita:</label>
               <select
                 id="incognita"
-                class="rounded border-0 bg-white px-3 py-1.5 text-sm text-texto focus:ring-2 focus:ring-rosa-medio"
+                class="rounded border-0 bg-surface px-3 py-2 text-sm text-ink focus:ring-2 focus:ring-on-accent sm:py-1.5"
               ></select>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-              <button id="btn-calcular" type="button" class="rounded bg-white px-4 py-1.5 text-sm font-bold text-rosa-primario shadow hover:bg-rosa-pale focus:ring-2 focus:ring-white">
+              <button id="btn-calcular" type="button" class="rounded bg-on-accent px-4 py-2 text-sm font-bold text-accent-strong shadow-sm hover:bg-page sm:py-1.5">
                 Calcular
               </button>
-              <button id="btn-ejemplo" type="button" class="rounded border border-white/70 px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 focus:ring-2 focus:ring-white">
+              <button id="btn-ejemplo" type="button" class="rounded border border-on-accent/60 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-white/10 sm:py-1.5">
                 Cargar ejemplo
               </button>
-              <button id="btn-restablecer" type="button" class="rounded border border-white/70 px-4 py-1.5 text-sm font-semibold text-white hover:bg-white/10 focus:ring-2 focus:ring-white">
+              <button id="btn-restablecer" type="button" class="rounded border border-on-accent/60 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-white/10 sm:py-1.5">
                 Restablecer
               </button>
             </div>
           </div>
-          <div class="flex flex-col items-start gap-2 px-4 py-4 sm:flex-row sm:items-center sm:gap-6">
+          <div
+            id="resultado-bloque"
+            class="flex flex-col items-start gap-2 px-4 py-4 sm:flex-row sm:items-center sm:gap-6"
+            aria-labelledby="resultado-descripcion"
+          >
             <div class="min-w-0">
-              <p id="resultado-descripcion" class="text-sm font-semibold text-texto/70">Resultado</p>
+              <p id="resultado-descripcion" class="text-sm font-semibold text-ink-soft">Resultado</p>
               <p class="mt-1 flex items-baseline gap-2">
-                <span id="resultado-valor" class="text-3xl font-bold tabular-nums text-rosa-primario sm:text-4xl">—</span>
-                <span id="resultado-unidad" class="text-base font-semibold text-texto/70"></span>
+                <span id="resultado-valor" class="text-3xl font-bold tabular-nums text-accent sm:text-4xl">—</span>
+                <span id="resultado-unidad" class="text-base font-semibold text-ink-soft"></span>
               </p>
             </div>
             <p
@@ -103,15 +137,15 @@
           <div id="resultado-alertas" class="space-y-2 px-4 pb-4"></div>
         </section>
 
-        <div class="grid gap-4 lg:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <!-- ========== COLUMNA PRINCIPAL ========== -->
           <div class="space-y-4">
             <!-- Datos generales -->
-            <section aria-labelledby="titulo-generales" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-              <h2 id="titulo-generales" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+            <section aria-labelledby="titulo-generales" class="rounded-md border border-line bg-surface">
+              <h2 id="titulo-generales" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
                 Datos generales
               </h2>
-              <div class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+              <div class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="col-span-2 sm:col-span-3">
                   <label for="gen-fluido" class="mb-1 block text-xs font-semibold">Fluido (preset de agua; ρ y ν siguen editables)</label>
                   <select id="gen-fluido" class="campo-unidad w-full sm:w-96"></select>
@@ -129,8 +163,8 @@
                   <input id="gen-nu" type="text" inputmode="decimal" class="campo-editable w-full" />
                 </div>
                 <div>
-                  <label for="gen-gamma" class="mb-1 block text-xs font-semibold">Peso específico γ=ρg (N/m³)</label>
-                  <input id="gen-gamma" type="text" readonly class="campo-calc w-full" />
+                  <label for="gen-gamma" class="mb-1 block text-xs font-semibold">Peso específico γ=ρg (N/m³) · calculado</label>
+                  <input id="gen-gamma" type="text" readonly aria-readonly="true" class="campo-calc w-full" />
                 </div>
                 <div>
                   <label for="gen-HB" class="mb-1 block text-xs font-semibold">Carga de bomba H<sub>B</sub> (m)</label>
@@ -141,10 +175,10 @@
                   <input id="gen-HT" type="text" inputmode="decimal" class="campo-editable w-full" />
                 </div>
                 <details class="col-span-2 sm:col-span-3">
-                  <summary class="cursor-pointer text-xs font-semibold text-rosa-primario">
+                  <summary class="cursor-pointer text-xs font-semibold text-accent">
                     Datos avanzados: coeficientes de corrección α (modo básico: α = 1)
                   </summary>
-                  <div class="mt-2 grid grid-cols-2 gap-3">
+                  <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label for="gen-alpha1" class="mb-1 block text-xs font-semibold">α<sub>1</sub> (adim.)</label>
                       <input id="gen-alpha1" type="text" inputmode="decimal" class="campo-editable w-full" />
@@ -156,15 +190,15 @@
                   </div>
                 </details>
               </div>
-              <div class="border-t border-rosa-borde/60 px-4 py-3">
-                <p class="mb-2 text-xs font-semibold">Modo de pérdidas:</p>
-                <div class="flex flex-wrap gap-4">
+              <div class="border-t border-line/60 px-4 py-3">
+                <h3 id="titulo-modo-perdidas" class="mb-2 text-xs font-semibold">Modo de pérdidas</h3>
+                <div class="flex flex-wrap gap-4" role="radiogroup" aria-labelledby="titulo-modo-perdidas">
                   <label class="flex items-center gap-2 text-sm">
-                    <input type="radio" name="modo-perdidas" id="modo-ingresadas" value="ingresadas" checked class="accent-rosa-primario" />
+                    <input type="radio" name="modo-perdidas" id="modo-ingresadas" value="ingresadas" checked class="accent-accent-strong" />
                     Pérdidas ingresadas (h<sub>L</sub>)
                   </label>
                   <label class="flex items-center gap-2 text-sm">
-                    <input type="radio" name="modo-perdidas" id="modo-automaticas" value="automaticas" class="accent-rosa-primario" />
+                    <input type="radio" name="modo-perdidas" id="modo-automaticas" value="automaticas" class="accent-accent-strong" />
                     Cálculo automático (Darcy–Weisbach + pérdidas menores)
                   </label>
                 </div>
@@ -182,18 +216,28 @@
                     <input id="inp-hm" type="text" inputmode="decimal" class="campo-editable w-full" />
                   </div>
                 </div>
+                <p id="pista-perdidas-ingresadas" class="mt-2 text-xs text-ink-soft">
+                  Introduzca <strong>solo h<sub>L</sub></strong>, o deje h<sub>L</sub> vacío e ingrese
+                  <strong>h<sub>f</sub> y h<sub>m</sub></strong> por separado (en ese caso
+                  h<sub>L</sub> = h<sub>f</sub> + h<sub>m</sub>). Un campo vacío no se convierte en cero.
+                </p>
               </div>
             </section>
 
             <!-- Datos de los puntos -->
-            <section aria-labelledby="titulo-puntos" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-              <h2 id="titulo-puntos" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+            <section aria-labelledby="titulo-puntos" class="rounded-md border border-line bg-surface">
+              <h2 id="titulo-puntos" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
                 Datos en los puntos 1 y 2
               </h2>
-              <div class="overflow-x-auto p-4">
-                <table class="w-full min-w-[520px] border-collapse text-sm">
+              <div
+                class="overflow-x-auto p-4"
+                role="region"
+                tabindex="0"
+                aria-label="Tabla editable de datos en los puntos 1 y 2"
+              >
+                <table class="tabla-limpia w-full min-w-[520px] border-collapse text-sm">
                   <thead>
-                    <tr class="border-b border-rosa-borde text-left">
+                    <tr class="border-b border-line text-left">
                       <th scope="col" class="py-2 pr-2 font-bold">Variable</th>
                       <th scope="col" class="py-2 px-2 font-bold">Punto 1</th>
                       <th scope="col" class="py-2 px-2 font-bold">Punto 2</th>
@@ -201,13 +245,13 @@
                     </tr>
                   </thead>
                   <tbody id="tabla-puntos-cuerpo">
-                    <tr class="border-b border-rosa-borde/50">
+                    <tr>
                       <th scope="row" class="py-1.5 pr-2 text-left font-medium">Cota z</th>
                       <td class="px-2"><input id="p1-z" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Cota z del punto 1" /></td>
                       <td class="px-2"><input id="p2-z" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Cota z del punto 2" /></td>
                       <td class="py-1.5 pl-2 text-xs">m</td>
                     </tr>
-                    <tr class="border-b border-rosa-borde/50">
+                    <tr>
                       <th scope="row" class="py-1.5 pr-2 text-left font-medium">Presión P</th>
                       <td class="px-2"><input id="p1-P" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Presión P del punto 1" /></td>
                       <td class="px-2"><input id="p2-P" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Presión P del punto 2" /></td>
@@ -216,7 +260,7 @@
                         <select id="p2-P-unit" class="campo-unidad mt-1" aria-label="Unidad de presión del punto 2"></select>
                       </td>
                     </tr>
-                    <tr class="border-b border-rosa-borde/50">
+                    <tr>
                       <th scope="row" class="py-1.5 pr-2 text-left font-medium">Caudal Q</th>
                       <td class="px-2"><input id="p1-Q" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Caudal Q del punto 1" /></td>
                       <td class="px-2"><input id="p2-Q" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Caudal Q del punto 2" /></td>
@@ -225,7 +269,7 @@
                         <select id="p2-Q-unit" class="campo-unidad mt-1" aria-label="Unidad de caudal del punto 2"></select>
                       </td>
                     </tr>
-                    <tr class="border-b border-rosa-borde/50">
+                    <tr>
                       <th scope="row" class="py-1.5 pr-2 text-left font-medium">Diámetro D</th>
                       <td class="px-2"><input id="p1-D" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Diámetro D del punto 1" /></td>
                       <td class="px-2"><input id="p2-D" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Diámetro D del punto 2" /></td>
@@ -234,7 +278,7 @@
                         <select id="p2-D-unit" class="campo-unidad mt-1" aria-label="Unidad de diámetro del punto 2"></select>
                       </td>
                     </tr>
-                    <tr class="border-b border-rosa-borde/50">
+                    <tr>
                       <th scope="row" class="py-1.5 pr-2 text-left font-medium">Método de velocidad</th>
                       <td class="px-2">
                         <select id="p1-vel-method" class="campo-unidad w-full" aria-label="Método de velocidad del punto 1">
@@ -250,7 +294,7 @@
                       </td>
                       <td class="py-1.5 pl-2 text-xs">—</td>
                     </tr>
-                    <tr class="border-b border-rosa-borde/50">
+                    <tr>
                       <th scope="row" class="py-1.5 pr-2 text-left font-medium">Velocidad V</th>
                       <td class="px-2"><input id="p1-V" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Velocidad V del punto 1" /></td>
                       <td class="px-2"><input id="p2-V" type="text" inputmode="decimal" class="campo-editable w-full" aria-label="Velocidad V del punto 2" /></td>
@@ -264,60 +308,66 @@
                     </tr>
                   </tbody>
                 </table>
-                <p class="mt-2 text-xs text-texto/70">
-                  Los campos amarillo pálido son editables; los azules se calculan. Un campo vacío no se convierte en cero.
-                </p>
+                <div class="mt-2 space-y-1 text-xs text-ink-soft">
+                  <p>
+                    <span class="inline-block h-3 w-3 border border-edit-border bg-edit-bg align-middle" aria-hidden="true"></span>
+                    <strong>Editable</strong> (relleno amarillo): usted introduce el valor.
+                    <span class="ml-3 inline-block h-3 w-3 border border-calc-border bg-calc-bg align-middle" aria-hidden="true"></span>
+                    <strong>Calculado</strong> (relleno azul pálido): la aplicación lo obtiene de otros datos.
+                  </p>
+                  <p>Un campo vacío no se convierte en cero.</p>
+                </div>
               </div>
             </section>
 
             <!-- Componentes de energía -->
-            <section aria-labelledby="titulo-componentes" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-              <h2 id="titulo-componentes" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+            <section aria-labelledby="titulo-componentes" class="rounded-md border border-line bg-surface">
+              <h2 id="titulo-componentes" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
                 Componentes de energía
               </h2>
-              <div class="overflow-x-auto p-4">
-                <table class="w-full min-w-[420px] border-collapse text-sm">
+              <div class="overflow-x-auto p-4" role="region" tabindex="0" aria-label="Tabla de componentes de energía">
+                <table class="tabla-limpia w-full min-w-[420px] border-collapse text-sm">
                   <thead>
-                    <tr class="border-b border-rosa-borde text-left">
+                    <tr class="border-b border-line text-left">
                       <th scope="col" class="py-2 pr-2 font-bold">Componente</th>
                       <th scope="col" class="py-2 px-2 font-bold">Punto 1 (m)</th>
                       <th scope="col" class="py-2 px-2 font-bold">Punto 2 (m)</th>
                     </tr>
                   </thead>
                   <tbody id="componentes-cuerpo">
-                    <tr class="border-b border-rosa-borde/50"><th scope="row" class="py-1.5 pr-2 text-left font-medium">Carga de elevación z</th><td id="comp-z1" class="px-2 tabular-nums">—</td><td id="comp-z2" class="px-2 tabular-nums">—</td></tr>
-                    <tr class="border-b border-rosa-borde/50"><th scope="row" class="py-1.5 pr-2 text-left font-medium">Carga de presión P/γ</th><td id="comp-hP1" class="px-2 tabular-nums">—</td><td id="comp-hP2" class="px-2 tabular-nums">—</td></tr>
-                    <tr class="border-b border-rosa-borde/50"><th scope="row" class="py-1.5 pr-2 text-left font-medium">Carga de velocidad αV²/(2g)</th><td id="comp-hV1" class="px-2 tabular-nums">—</td><td id="comp-hV2" class="px-2 tabular-nums">—</td></tr>
-                    <tr class="bg-rosa-pale font-bold"><th scope="row" class="py-1.5 pr-2 text-left">Carga total H</th><td id="comp-H1" class="px-2 tabular-nums">—</td><td id="comp-H2" class="px-2 tabular-nums">—</td></tr>
+                    <tr><th scope="row" class="py-1.5 pr-2 text-left font-medium">Carga de elevación z</th><td id="comp-z1" class="px-2 tabular-nums">—</td><td id="comp-z2" class="px-2 tabular-nums">—</td></tr>
+                    <tr><th scope="row" class="py-1.5 pr-2 text-left font-medium">Carga de presión P/γ</th><td id="comp-hP1" class="px-2 tabular-nums">—</td><td id="comp-hP2" class="px-2 tabular-nums">—</td></tr>
+                    <tr><th scope="row" class="py-1.5 pr-2 text-left font-medium">Carga de velocidad αV²/(2g)</th><td id="comp-hV1" class="px-2 tabular-nums">—</td><td id="comp-hV2" class="px-2 tabular-nums">—</td></tr>
+                    <tr class="bg-surface-2 font-bold"><th scope="row" class="py-1.5 pr-2 text-left">Carga total H</th><td id="comp-H1" class="px-2 tabular-nums">—</td><td id="comp-H2" class="px-2 tabular-nums">—</td></tr>
                   </tbody>
                 </table>
               </div>
             </section>
 
             <!-- Comprobación -->
-            <section aria-labelledby="titulo-comprobacion" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-              <h2 id="titulo-comprobacion" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+            <section aria-labelledby="titulo-comprobacion" class="rounded-md border border-line bg-surface">
+              <h2 id="titulo-comprobacion" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
                 Comprobación de Bernoulli
               </h2>
-              <div class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
+              <div class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
-                  <p class="text-xs font-semibold text-texto/70">H<sub>1</sub> + H<sub>B</sub></p>
+                  <p class="text-xs font-semibold text-ink-soft">H<sub>1</sub> + H<sub>B</sub></p>
                   <p id="comprobacion-izq" class="mt-1 text-lg font-bold tabular-nums">—</p>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold text-texto/70">H<sub>2</sub> + H<sub>T</sub> + h<sub>L</sub></p>
+                  <p class="text-xs font-semibold text-ink-soft">H<sub>2</sub> + H<sub>T</sub> + h<sub>L</sub></p>
                   <p id="comprobacion-der" class="mt-1 text-lg font-bold tabular-nums">—</p>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold text-texto/70">Diferencia (m)</p>
+                  <p class="text-xs font-semibold text-ink-soft">Diferencia (m)</p>
                   <p id="comprobacion-diff" class="mt-1 text-lg font-bold tabular-nums">—</p>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold text-texto/70">Estado</p>
+                  <p class="text-xs font-semibold text-ink-soft">Estado</p>
                   <p id="comprobacion-estado" class="mt-1 rounded px-2 py-1 text-sm font-bold">—</p>
                 </div>
               </div>
-              <p class="px-4 pb-3 text-xs text-texto/70">
+              <p class="px-4 pb-3 text-xs text-ink-soft">
                 Criterio: |H<sub>izq</sub> − H<sub>der</sub>| ≤ 1·10<sup>−6</sup> + 1·10<sup>−8</sup>·max(|H<sub>izq</sub>|, |H<sub>der</sub>|).
               </p>
             </section>
@@ -326,45 +376,52 @@
           <!-- ========== COLUMNA SECUNDARIA ========== -->
           <div class="space-y-4">
             <!-- Valores usados -->
-            <section aria-labelledby="titulo-usados" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-              <h2 id="titulo-usados" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+            <section aria-labelledby="titulo-usados" class="rounded-md border border-line bg-surface">
+              <h2 id="titulo-usados" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
                 Valores usados en la verificación
               </h2>
-              <ul id="valores-usados" class="max-h-64 space-y-1 overflow-y-auto p-4 text-sm"></ul>
+              <div
+                class="max-h-64 overflow-y-auto"
+                role="region"
+                tabindex="0"
+                aria-label="Valores usados en la verificación"
+              >
+                <ul id="valores-usados" class="space-y-1 p-4 text-sm"></ul>
+              </div>
             </section>
 
             <!-- Perfil tabular -->
-            <section aria-labelledby="titulo-perfil-tabla" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-              <h2 id="titulo-perfil-tabla" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+            <section aria-labelledby="titulo-perfil-tabla" class="rounded-md border border-line bg-surface">
+              <h2 id="titulo-perfil-tabla" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
                 Cotas, línea piezométrica y línea de energía
               </h2>
-              <div class="overflow-x-auto p-4">
-                <table class="w-full min-w-[420px] border-collapse text-sm">
+              <div class="overflow-x-auto p-4" role="region" tabindex="0" aria-label="Tabla de cotas, línea piezométrica y línea de energía">
+                <table class="tabla-limpia w-full min-w-[420px] border-collapse text-sm">
                   <thead>
-                    <tr class="border-b border-rosa-borde text-left">
+                    <tr class="border-b border-line text-left">
                       <th scope="col" class="py-2 pr-2 font-bold">Serie</th>
                       <th scope="col" class="py-2 px-2 font-bold">Punto 1 (m)</th>
                       <th scope="col" class="py-2 px-2 font-bold">Punto 2 (m)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr class="border-b border-rosa-borde/50"><th scope="row" class="py-1.5 pr-2 text-left font-medium">Cota geométrica z</th><td id="perfil-z1" class="px-2 tabular-nums">—</td><td id="perfil-z2" class="px-2 tabular-nums">—</td></tr>
-                    <tr class="border-b border-rosa-borde/50"><th scope="row" class="py-1.5 pr-2 text-left font-medium">Línea piezométrica (HGL) z + P/γ</th><td id="perfil-hgl1" class="px-2 tabular-nums">—</td><td id="perfil-hgl2" class="px-2 tabular-nums">—</td></tr>
+                    <tr><th scope="row" class="py-1.5 pr-2 text-left font-medium">Cota geométrica z</th><td id="perfil-z1" class="px-2 tabular-nums">—</td><td id="perfil-z2" class="px-2 tabular-nums">—</td></tr>
+                    <tr><th scope="row" class="py-1.5 pr-2 text-left font-medium">Línea piezométrica (HGL) z + P/γ</th><td id="perfil-hgl1" class="px-2 tabular-nums">—</td><td id="perfil-hgl2" class="px-2 tabular-nums">—</td></tr>
                     <tr><th scope="row" class="py-1.5 pr-2 text-left font-medium">Línea de energía (EGL)</th><td id="perfil-egl1" class="px-2 tabular-nums">—</td><td id="perfil-egl2" class="px-2 tabular-nums">—</td></tr>
                   </tbody>
                 </table>
-                <p class="mt-2 text-xs text-texto/70">
+                <p class="mt-2 text-xs text-ink-soft">
                   La serie entre los dos puntos es una interpolación ilustrativa: la distribución intermedia no se conoce.
                 </p>
               </div>
             </section>
 
             <!-- Pérdidas automáticas -->
-            <section aria-labelledby="titulo-perdidas" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-              <h2 id="titulo-perdidas" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+            <section aria-labelledby="titulo-perdidas" class="rounded-md border border-line bg-surface">
+              <h2 id="titulo-perdidas" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
                 Cálculo de pérdidas (Darcy–Weisbach)
               </h2>
-              <div id="bloque-perdidas-auto" class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+              <div id="bloque-perdidas-auto" class="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div>
                   <label for="pipe-L" class="mb-1 block text-xs font-semibold">Longitud L (m)</label>
                   <input id="pipe-L" type="text" inputmode="decimal" class="campo-editable w-full" />
@@ -391,7 +448,7 @@
                   </div>
                 </div>
                 <div>
-                  <label for="pipe-sumK" class="mb-1 block text-xs font-semibold">ΣK (accs.)</label>
+                  <label for="pipe-sumK" class="mb-1 block text-xs font-semibold">ΣK suma de pérdidas menores (adimensional)</label>
                   <input id="pipe-sumK" type="text" inputmode="decimal" class="campo-editable w-full" />
                 </div>
                 <div>
@@ -403,100 +460,143 @@
                   <input id="pipe-f-input" type="text" inputmode="decimal" class="campo-editable w-full" />
                 </div>
               </div>
-              <div class="border-t border-rosa-borde/60 px-4 py-3">
-                <p class="mb-2 text-xs font-semibold">Lista de accesorios (ΣK = Σ nᵢ·Kᵢ, editable; sin coeficientes precargados):</p>
-                <ul id="accesorios-lista" class="space-y-2"></ul>
-                <button id="btn-agregar-accesorio" type="button" class="mt-2 rounded border border-rosa-medio px-3 py-1 text-xs font-semibold text-rosa-primario hover:bg-rosa-pale">
+              <div class="border-t border-line/60 px-4 py-3">
+                <h3 id="titulo-accesorios" class="mb-2 text-xs font-semibold">
+                  Lista de accesorios (ΣK = Σ nᵢ·Kᵢ, editable; sin coeficientes precargados)
+                </h3>
+                <ul id="accesorios-lista" class="space-y-2" aria-labelledby="titulo-accesorios"></ul>
+                <p id="pista-accesorios" class="mt-1 text-xs text-ink-soft">
+                  Cada fila tiene nombre, cantidad n y coeficiente K. Mientras haya filas, ΣK se calcula
+                  solo y el campo ΣK de arriba queda de solo lectura.
+                </p>
+                <button
+                  id="btn-agregar-accesorio"
+                  type="button"
+                  class="mt-2 rounded border border-accent px-3 py-2 text-xs font-semibold text-accent hover:bg-page sm:py-1"
+                >
                   + Agregar accesorio
                 </button>
               </div>
-              <div class="grid grid-cols-2 gap-2 border-t border-rosa-borde/60 p-4 text-sm sm:grid-cols-3">
-                <div><p class="text-xs font-semibold text-texto/70">Velocidad V</p><p id="pipe-V" class="tabular-nums">—</p></div>
-                <div><p class="text-xs font-semibold text-texto/70">Área A</p><p id="pipe-A" class="tabular-nums">—</p></div>
-                <div><p class="text-xs font-semibold text-texto/70">Reynolds Re</p><p id="pipe-Re" class="tabular-nums">—</p></div>
-                <div><p class="text-xs font-semibold text-texto/70">Régimen</p><p id="pipe-regimen">—</p></div>
-                <div><p class="text-xs font-semibold text-texto/70">Factor f (Darcy)</p><p id="pipe-f" class="tabular-nums">—</p></div>
-                <div><p class="text-xs font-semibold text-texto/70">Pérdida mayor h<sub>f</sub></p><p id="pipe-hf" class="tabular-nums">—</p></div>
-                <div><p class="text-xs font-semibold text-texto/70">Pérdida menor h<sub>m</sub></p><p id="pipe-hm" class="tabular-nums">—</p></div>
-                <div><p class="text-xs font-semibold text-texto/70">Pérdida total h<sub>L</sub></p><p id="pipe-hL" class="tabular-nums">—</p></div>
-                <div><p class="text-xs font-semibold text-texto/70">Advertencias</p><p id="pipe-warn" class="text-xs">—</p></div>
+              <div class="grid grid-cols-1 gap-2 border-t border-line/60 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                <div><p class="text-xs font-semibold text-ink-soft">Velocidad V</p><p id="pipe-V" class="tabular-nums">—</p></div>
+                <div><p class="text-xs font-semibold text-ink-soft">Área A</p><p id="pipe-A" class="tabular-nums">—</p></div>
+                <div><p class="text-xs font-semibold text-ink-soft">Reynolds Re</p><p id="pipe-Re" class="tabular-nums">—</p></div>
+                <div><p class="text-xs font-semibold text-ink-soft">Régimen</p><p id="pipe-regimen">—</p></div>
+                <div><p class="text-xs font-semibold text-ink-soft">Factor f (Darcy)</p><p id="pipe-f" class="tabular-nums">—</p></div>
+                <div><p class="text-xs font-semibold text-ink-soft">Pérdida mayor h<sub>f</sub></p><p id="pipe-hf" class="tabular-nums">—</p></div>
+                <div><p class="text-xs font-semibold text-ink-soft">Pérdida menor h<sub>m</sub></p><p id="pipe-hm" class="tabular-nums">—</p></div>
+                <div><p class="text-xs font-semibold text-ink-soft">Pérdida total h<sub>L</sub></p><p id="pipe-hL" class="tabular-nums">—</p></div>
+                <div><p class="text-xs font-semibold text-ink-soft">Advertencias</p><p id="pipe-warn" class="text-xs">—</p></div>
               </div>
             </section>
           </div>
         </div>
 
         <!-- Gráfica perfil -->
-        <section aria-labelledby="titulo-grafica" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-          <h2 id="titulo-grafica" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+        <section aria-labelledby="titulo-grafica" class="rounded-md border border-line bg-surface">
+          <h2 id="titulo-grafica" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
             Perfil de cargas en los dos puntos (m)
           </h2>
           <div class="p-4">
-            <div id="chart-perfil-wrap" class="relative mx-auto w-full max-w-4xl">
-              <canvas id="chart-perfil" role="img" aria-label="Gráfica del perfil de cargas entre el punto 1 y el punto 2"></canvas>
-              <p id="chart-perfil-vacio" class="rounded border border-dashed border-rosa-borde bg-rosa-pale p-6 text-center text-sm text-texto/80">
+            <div id="chart-perfil-wrap" class="relative mx-auto h-64 w-full max-w-4xl sm:h-80">
+              <canvas
+                id="chart-perfil"
+                role="img"
+                aria-label="Gráfica del perfil de cargas entre el punto 1 y el punto 2"
+                aria-describedby="chart-perfil-resumen"
+              ></canvas>
+              <p id="chart-perfil-vacio" class="absolute inset-0 flex items-center justify-center rounded border border-dashed border-line bg-page p-6 text-center text-sm text-ink-soft">
                 Introduzca datos válidos y calcule para ver el perfil de cargas (cota, línea piezométrica y línea de energía).
               </p>
             </div>
-            <p id="chart-perfil-resumen" class="mt-3 text-xs text-texto/70" aria-live="polite"></p>
+            <p id="chart-perfil-resumen" class="mt-3 text-xs text-ink-soft"></p>
           </div>
         </section>
 
         <!-- Gráfica barras -->
-        <section aria-labelledby="titulo-grafica-barras" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-          <h2 id="titulo-grafica-barras" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+        <section aria-labelledby="titulo-grafica-barras" class="rounded-md border border-line bg-surface">
+          <h2 id="titulo-grafica-barras" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
             Componentes de energía comparados (complementaria)
           </h2>
           <div class="p-4">
-            <div id="chart-barras-wrap" class="relative mx-auto w-full max-w-4xl">
-              <canvas id="chart-barras" role="img" aria-label="Gráfica de barras de los componentes de energía en los puntos 1 y 2"></canvas>
-              <p id="chart-barras-vacio" class="rounded border border-dashed border-rosa-borde bg-rosa-pale p-6 text-center text-sm text-texto/80">
-                La gráfica de barras se mostrará cuando existan componentes de energía calculados.
+            <div id="chart-barras-wrap" class="relative mx-auto h-60 w-full max-w-4xl sm:h-72">
+              <canvas
+                id="chart-barras"
+                role="img"
+                aria-label="Gráfica de barras de los componentes de energía en los puntos 1 y 2"
+                aria-describedby="chart-barras-resumen"
+              ></canvas>
+              <p id="chart-barras-vacio" class="absolute inset-0 flex items-center justify-center rounded border border-dashed border-line bg-page p-6 text-center text-sm text-ink-soft">
+                La comparación de componentes de energía se mostrará cuando existan z, P y V calculados en ambos puntos.
               </p>
             </div>
+            <p id="chart-barras-resumen" class="mt-3 text-xs text-ink-soft"></p>
           </div>
         </section>
 
         <!-- Gráfica composición de pérdidas -->
-        <section aria-labelledby="titulo-grafica-perdidas" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-          <h2 id="titulo-grafica-perdidas" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+        <section aria-labelledby="titulo-grafica-perdidas" class="rounded-md border border-line bg-surface">
+          <h2 id="titulo-grafica-perdidas" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
             Composición de las pérdidas de carga (m)
           </h2>
           <div class="p-4">
-            <div id="chart-perdidas-wrap" class="relative mx-auto w-full max-w-2xl">
-              <canvas id="chart-perdidas" role="img" aria-label="Gráfica apilada de la pérdida mayor por fricción y la pérdida menor por accesorios que componen la pérdida total"></canvas>
-              <p id="chart-perdidas-vacio" class="rounded border border-dashed border-rosa-borde bg-rosa-pale p-6 text-center text-sm text-texto/80">
+            <div id="chart-perdidas-wrap" class="relative mx-auto h-60 w-full max-w-2xl sm:h-72">
+              <canvas
+                id="chart-perdidas"
+                role="img"
+                aria-label="Gráfica apilada de la pérdida mayor por fricción y la pérdida menor por accesorios que componen la pérdida total"
+                aria-describedby="chart-perdidas-resumen"
+              ></canvas>
+              <p id="chart-perdidas-vacio" class="absolute inset-0 flex items-center justify-center rounded border border-dashed border-line bg-page p-6 text-center text-sm text-ink-soft">
                 La composición de pérdidas (h_f + h_m = h_L) se mostrará cuando estén calculadas.
               </p>
             </div>
-            <p id="chart-perdidas-resumen" class="mt-3 text-xs text-texto/70" aria-live="polite"></p>
+            <p id="chart-perdidas-resumen" class="mt-3 text-xs text-ink-soft"></p>
           </div>
         </section>
 
-        <!-- Procedimiento -->
-        <section aria-labelledby="titulo-procedimiento" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-          <h2 id="titulo-procedimiento" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
-            Procedimiento: fórmula, sustitución y resultado
-          </h2>
-          <div class="space-y-3 p-4 text-sm">
-            <div>
-              <p class="text-xs font-semibold text-texto/70">Fórmula utilizada</p>
-              <p id="procedimiento-formula" class="mt-1 font-mono text-texto">—</p>
+        <!-- Procedimiento (plegado por defecto; el resultado principal permanece visible arriba) -->
+        <section aria-labelledby="titulo-procedimiento" class="rounded-md border border-line bg-surface">
+          <details id="procedimiento-detalle">
+            <summary
+              id="titulo-procedimiento"
+              class="cursor-pointer rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent select-none"
+            >
+              Procedimiento detallado: fórmula, sustitución y resultado (desplegar)
+            </summary>
+            <div class="space-y-3 p-4 text-sm">
+              <div>
+                <p class="text-xs font-semibold text-ink-soft">1. Ecuación original</p>
+                <p id="procedimiento-formula" class="mt-1 font-mono text-ink">—</p>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-ink-soft">2. Despeje simbólico</p>
+                <ol id="procedimiento-despeje" class="mt-1 list-decimal space-y-1 pl-5 text-xs text-ink-soft"></ol>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-ink-soft">3. Conversión de unidades</p>
+                <ul id="procedimiento-conversiones" class="mt-1 list-disc space-y-1 pl-5 text-xs text-ink-soft"></ul>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-ink-soft">4. Sustitución numérica</p>
+                <p id="procedimiento-sustitucion" class="mt-1 break-words font-mono text-ink">—</p>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-ink-soft">Operaciones intermedias</p>
+                <ul id="procedimiento-operaciones" class="mt-1 list-decimal space-y-1 pl-5 text-xs text-ink-soft"></ul>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-ink-soft">5. Resultado final</p>
+                <p id="procedimiento-resultado" class="mt-1 font-bold text-accent">—</p>
+              </div>
+              <ul id="procedimiento-notas" class="list-disc space-y-1 pl-5 text-xs text-ink-soft"></ul>
             </div>
-            <div>
-              <p class="text-xs font-semibold text-texto/70">Sustitución numérica</p>
-              <p id="procedimiento-sustitucion" class="mt-1 break-words font-mono text-texto">—</p>
-            </div>
-            <div>
-              <p class="text-xs font-semibold text-texto/70">Resultado</p>
-              <p id="procedimiento-resultado" class="mt-1 font-bold text-rosa-primario">—</p>
-            </div>
-            <ul id="procedimiento-notas" class="list-disc space-y-1 pl-5 text-xs text-texto/80"></ul>
-          </div>
+          </details>
         </section>
 
         <!-- Uso rápido -->
-        <section aria-labelledby="titulo-uso" class="rounded-md border border-rosa-borde bg-white shadow-sm">
-          <h2 id="titulo-uso" class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+        <section aria-labelledby="titulo-uso" class="rounded-md border border-line bg-surface">
+          <h2 id="titulo-uso" class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
             Uso rápido
           </h2>
           <ol class="list-decimal space-y-1 p-4 pl-8 text-sm">
@@ -513,7 +613,7 @@
       <section id="panel-guia" role="tabpanel" aria-labelledby="tab-guia" hidden class="space-y-4"></section>
     </main>
 
-    <footer class="mx-auto max-w-7xl px-4 pb-8 pt-2 text-xs text-texto/60">
+    <footer class="mx-auto max-w-7xl px-4 pb-8 pt-2 text-xs text-ink-soft">
       Calculadora de Bernoulli · JavaScript vanilla + Vite + Tailwind CSS + Chart.js ·
       Factor de fricción de Darcy (no Fanning). Los resultados dependen de los datos de entrada y de las hipótesis del modelo.
     </footer>

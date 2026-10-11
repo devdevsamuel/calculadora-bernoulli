@@ -1,20 +1,77 @@
 @import "tailwindcss";
 
 @theme {
-  --color-fondo: #fff5f7;
-  --color-rosa-primario: #be185d;
-  --color-rosa-medio: #ec4899;
-  --color-rosa-pale: #fdf2f8;
-  --color-rosa-borde: #fbcfe8;
-  --color-exito-fondo: #dcfce7;
-  --color-exito-texto: #166534;
-  --color-aviso-fondo: #fef3c7;
-  --color-aviso-texto: #92400e;
-  --color-error-fondo: #ffe4e6;
-  --color-error-texto: #9d174d;
-  --color-info-fondo: #e0f2fe;
-  --color-info-texto: #075985;
-  --color-texto: #334155;
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-on-accent: var(--on-accent);
+  --color-edit-bg: var(--edit-bg);
+  --color-edit-border: var(--edit-border);
+  --color-edit-ink: var(--edit-ink);
+  --color-calc-bg: var(--calc-bg);
+  --color-calc-border: var(--calc-border);
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-text: var(--ok-text);
+  --color-err-bg: var(--err-bg);
+  --color-err-text: var(--err-text);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-text: var(--warn-text);
+  --color-focus: var(--focus);
+}
+
+:root {
+  color-scheme: light;
+  --page: #f4f8fb;
+  --surface: #ffffff;
+  --surface-2: #eaf2f8;
+  --line: #d5e3ef;
+  --ink: #162633;
+  --ink-soft: #546a7c;
+  --accent: #1873bd;
+  --accent-strong: #56b8ff;
+  --on-accent: #0c1722;
+  --edit-bg: #ffd68a;
+  --edit-border: #e7b95f;
+  --edit-ink: #162633;
+  --calc-bg: #eef5fa;
+  --calc-border: #c8dcea;
+  --ok-bg: #d7f9e9;
+  --ok-text: #0e7a55;
+  --err-bg: #fdeaea;
+  --err-text: #b4232f;
+  --warn-bg: #fff4d9;
+  --warn-text: #8a5a00;
+  --focus: #1976c4;
+}
+
+html.dark {
+  color-scheme: dark;
+  --page: #0c1722;
+  --surface: #162633;
+  --surface-2: #1c3040;
+  --line: #2b4253;
+  --ink: #edf5fc;
+  --ink-soft: #a8bbcb;
+  --accent: #8ecfff;
+  --accent-strong: #56b8ff;
+  --on-accent: #0c1722;
+  --edit-bg: #ffd68a;
+  --edit-border: #c9a24e;
+  --edit-ink: #0c1722;
+  --calc-bg: #0f1e2b;
+  --calc-border: #2b4253;
+  --ok-bg: #10342a;
+  --ok-text: #5cdea1;
+  --err-bg: #3a1d24;
+  --err-text: #ff9b9b;
+  --warn-bg: #3a2e14;
+  --warn-text: #ffd68a;
+  --focus: #8ecfff;
 }
 
 @layer base {
@@ -23,40 +80,36 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-rosa-medio);
+    outline: 2px solid var(--color-focus);
     outline-offset: 1px;
   }
 }
 
 @layer components {
   .campo-editable {
-    border: 1px solid var(--color-rosa-borde);
-    background: var(--color-rosa-pale);
+    border: 1px solid var(--color-edit-border);
+    background: var(--color-edit-bg);
     border-radius: 0.25rem;
     padding: 0.3rem 0.5rem;
     font-size: 0.875rem;
-    color: var(--color-texto);
+    color: var(--color-edit-ink);
   }
 
   .campo-editable:focus {
-    border-color: var(--color-rosa-medio);
-    outline: 2px solid var(--color-rosa-medio);
+    border-color: var(--color-focus);
+    outline: 2px solid var(--color-focus);
     outline-offset: 0;
   }
 
-  .campo-editable[aria-invalid="true"] {
-    border-color: var(--color-error-texto);
-    background: var(--color-error-fondo);
-  }
-
   .campo-editable:disabled,
+  .campo-editable[readonly],
   .campo-calc {
-    border: 1px solid #bae6fd;
-    background: #f0f9ff;
+    border: 1px solid var(--color-calc-border);
+    background: var(--color-calc-bg);
     border-radius: 0.25rem;
     padding: 0.3rem 0.5rem;
     font-size: 0.875rem;
-    color: var(--color-info-texto);
+    color: var(--color-ink);
   }
 
   .campo-editable:disabled {
@@ -64,44 +117,90 @@
     opacity: 0.9;
   }
 
+  .campo-editable[readonly] {
+    cursor: default;
+  }
+
+  .campo-editable[aria-invalid="true"] {
+    border-color: var(--color-err-text);
+    background: var(--color-err-bg);
+  }
+
+  .msg-error {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--color-err-text);
+  }
+
+  .franja-resultado :focus-visible {
+    outline: 3px solid var(--color-on-accent);
+    outline-offset: 2px;
+  }
+
   .campo-unidad {
-    border: 1px solid #bae6fd;
-    background: #f0f9ff;
+    border: 1px solid var(--color-calc-border);
+    background: var(--color-calc-bg);
     border-radius: 0.25rem;
     padding: 0.25rem 0.3rem;
     font-size: 0.75rem;
-    color: var(--color-info-texto);
+    color: var(--color-ink);
   }
 
   .tab-btn[aria-selected="true"] {
-    background: var(--color-rosa-primario);
-    color: #ffffff;
-    border-color: var(--color-rosa-primario);
+    background: var(--color-accent-strong);
+    color: var(--color-on-accent);
+    border-color: var(--color-accent-strong);
   }
 
   .tab-btn[aria-selected="false"] {
-    background: var(--color-rosa-pale);
-    color: var(--color-rosa-primario);
-    border-color: var(--color-rosa-borde);
+    background: var(--color-surface);
+    color: var(--color-accent);
+    border-color: var(--color-line);
   }
 
   .estado-ok {
-    background: var(--color-exito-fondo);
-    color: var(--color-exito-texto);
+    background: var(--color-ok-bg);
+    color: var(--color-ok-text);
   }
 
   .estado-error {
-    background: var(--color-error-fondo);
-    color: var(--color-error-texto);
+    background: var(--color-err-bg);
+    color: var(--color-err-text);
   }
 
   .estado-aviso {
-    background: var(--color-aviso-fondo);
-    color: var(--color-aviso-texto);
+    background: var(--color-warn-bg);
+    color: var(--color-warn-text);
   }
 
   .estado-info {
-    background: var(--color-info-fondo);
-    color: var(--color-info-texto);
+    background: var(--color-surface-2);
+    color: var(--color-ink);
+  }
+
+  .tabla-limpia tbody tr:nth-child(even):not(:has(th[colspan])) {
+    background: var(--color-surface-2);
+  }
+
+  .tabla-limpia tbody th,
+  .tabla-limpia tbody td {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .campo-editable,
+  .campo-unidad {
+    min-height: 2.5rem;
   }
 }

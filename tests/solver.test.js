@@ -58,12 +58,16 @@ test('caso de referencia: V2 por Q y D coincide con ~2.5465 m/s', () => {
   assert.ok(Math.abs(model.points[2].V - 2.5465) < 1e-4, `V2=${model.points[2].V}`);
 });
 
-test('despeje inverso: con P2 conocido, V2 (numérico) ≈ 2.5465 m/s', () => {
+test('despeje inverso: con P2 conocido, V2 (forma cerrada) ≈ 2.5465 m/s', () => {
   const P2 = solve(baseState()).value;
   const result = solve(baseState({ unknown: 'V2', p2: { P: P2 } }));
   assert.equal(result.ok, true, JSON.stringify({ error: result.error, missing: result.missing }));
   assert.ok(Math.abs(result.value - 2.5465) < 1e-3, `V2=${result.value}`);
-  assert.equal(result.numerical, true);
+  assert.ok(result.formula.includes('P₂/γ'), 'la fórmula de S debe incluir el término −P₂/γ');
+  assert.equal(result.status, 'multiples', '±V₂ cumplen el balance (la energía depende de V²)');
+  const alt = result.alternatives.find((a) => a.value < 0);
+  assert.ok(alt && alt.holds, 'la raíz negativa debe listarse como alternativa verificada');
+  assert.ok(Math.abs(alt.value + result.value) < 1e-9, `alternativa=${alt.value}`);
 });
 
 test('despeje de H_B desde el balance', () => {
@@ -214,4 +218,15 @@ test('applyUnknown permite reconstruir el modelo con el resultado', () => {
   const withResult = applyUnknown(state, 'P2', result.value);
   const model = buildModel(withResult);
   assert.equal(model.balance.ok, true);
+});
+
+test('despeje de h_f y h_m desde el balance (regresión: antes nunca resolvían)', () => {
+  const P2 = solve(baseState()).value;
+  const hf = solve(baseState({ unknown: 'hf', p2: { P: P2 } }));
+  assert.equal(hf.ok, true, JSON.stringify({ error: hf.error, missing: hf.missing }));
+  assert.ok(Math.abs(hf.value - 2.7026) < 0.01, `hf=${hf.value}`);
+  const hm = solve(baseState({ unknown: 'hm', p2: { P: P2 } }));
+  assert.equal(hm.ok, true, JSON.stringify({ error: hm.error, missing: hm.missing }));
+  assert.ok(Math.abs(hm.value - 0.4958) < 0.005, `hm=${hm.value}`);
+  assert.ok(Math.abs((hf.value + hm.value) - 3.1994) < 0.01, `hf+hm=${hf.value + hm.value}`);
 });

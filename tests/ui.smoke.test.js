@@ -11,6 +11,8 @@ function parseEses(value) {
   return Number(String(value).replace(/[^\d,.\-]/g, '').replace(/\./g, '').replace(',', '.'));
 }
 
+const esperarResultado = () => new Promise((r) => setTimeout(r, 700));
+
 test('humo de UI: ejemplo de referencia calcula P2 y verifica el balance', async () => {
   const html = readFileSync(join(root, 'index.html'), 'utf8');
   const window = new Window({ url: 'http://localhost/' });
@@ -34,8 +36,14 @@ test('humo de UI: ejemplo de referencia calcula P2 y verifica el balance', async
   initCalculator();
 
   assert.ok(document.getElementById('panel-guia').innerHTML.includes('Ecuación general'), 'la guía debe renderizarse');
+  assert.equal(
+    document.getElementById('chart-perfil-vacio').style.display,
+    'flex',
+    'con datos vacíos se muestra el estado vacío del perfil',
+  );
 
   document.getElementById('btn-ejemplo').click();
+  await esperarResultado();
 
   const valor = parseEses(document.getElementById('resultado-valor').textContent);
   assert.ok(Math.abs(valor - 106.69) < 0.2, `P2 mostrada: ${document.getElementById('resultado-valor').textContent}`);
@@ -52,11 +60,26 @@ test('humo de UI: ejemplo de referencia calcula P2 y verifica el balance', async
   const procedimiento = document.getElementById('procedimiento-formula').textContent;
   assert.ok(procedimiento.includes('P₂'), 'la fórmula del despeje debe mostrarse');
 
+  const despeje = document.getElementById('procedimiento-despeje').innerHTML;
+  assert.ok(despeje.includes('P₂/γ'), 'el despeje simbólico debe aislarse en P₂/γ');
+  const conversiones = document.getElementById('procedimiento-conversiones').textContent;
+  assert.ok(/kPa|L\/s|mm/.test(conversiones), `las conversiones de la interfaz deben listarse: ${conversiones}`);
+
   const usados = document.getElementById('valores-usados').innerHTML;
   assert.ok(usados.includes('H_B'), 'los valores usados deben listarse');
 
   const perfilZ2 = parseEses(document.getElementById('perfil-z2').textContent);
   assert.equal(perfilZ2, 115);
+
+  const resumenPerfil = document.getElementById('chart-perfil-resumen').textContent;
+  assert.ok(resumenPerfil.includes('Punto 1') && resumenPerfil.includes('EGL'), `resumen perfil: ${resumenPerfil}`);
+
+  const resumenBarras = document.getElementById('chart-barras-resumen').textContent;
+  const mZ1 = resumenBarras.match(/Punto 1 — z=([\d.,]+)/);
+  const mH1 = resumenBarras.match(/H=([\d.,]+)\./);
+  assert.ok(mZ1 && mH1, `resumen barras: ${resumenBarras}`);
+  assert.equal(parseEses(mZ1[1]), 102, 'z₁ del resumen debe ser el valor real');
+  assert.ok(Math.abs(parseEses(mH1[1]) - 117.43) < 0.05, `H₁ del resumen: ${mH1[1]}`);
 
   const resumenPerdidas = document.getElementById('chart-perdidas-resumen').textContent;
   const mHf = resumenPerdidas.match(/h_f \(fricción\) = ([\d.,]+) m/);
@@ -88,11 +111,19 @@ test('humo de UI: cambiar la incógnita deshabilita la celda y permite otro desp
   const select = document.getElementById('incognita');
   select.value = 'hL';
   select.dispatchEvent(new window.Event('change', { bubbles: true }));
-  await new Promise((r) => setTimeout(r, 400));
+  await new Promise((r) => setTimeout(r, 700));
 
   const valor = parseEses(document.getElementById('resultado-valor').textContent);
   assert.ok(Math.abs(valor - 3.1983) < 0.01, `h_L mostrado: ${document.getElementById('resultado-valor').textContent}`);
   assert.match(document.getElementById('resultado-estado').textContent, /verificado/i);
+  assert.ok(
+    document.getElementById('chart-perfil-resumen').textContent.includes('Punto 2'),
+    'el perfil debe seguir actualizándose al cambiar la incógnita',
+  );
+  assert.ok(
+    document.getElementById('chart-barras-resumen').textContent.includes('Punto 1'),
+    'la comparación de energía debe seguir actualizándose al cambiar la incógnita',
+  );
 });
 
 test('humo de UI: las pestañas Calculadora/Guía alternan paneles y el botón de la guía carga el ejemplo', async () => {
@@ -127,6 +158,7 @@ test('humo de UI: las pestañas Calculadora/Guía alternan paneles y el botón d
   assert.equal(document.getElementById('panel-calculadora').hidden, true);
 
   document.getElementById('btn-ejemplo-guia').click();
+  await esperarResultado();
   assert.equal(document.getElementById('panel-calculadora').hidden, false);
   assert.equal(document.getElementById('panel-guia').hidden, true);
   assert.match(document.getElementById('resultado-estado').textContent, /verificado/i);
@@ -175,4 +207,46 @@ test('humo de UI: presets de agua rellenan ρ/ν y la edición manual marca Pers
   assert.equal(sel.value, 'agua-20', 'restablecer vuelve a agua 20 °C');
   assert.equal(Number(rhoInput.value), 998.2);
   assert.equal(Number(document.getElementById('gen-nu').value), 1.004e-6);
+});
+
+test('humo de tema: interruptor aplica modo oscuro, persiste y el recálculo conserva resultados', async () => {
+  const html = readFileSync(join(root, 'index.html'), 'utf8');
+  const window = new Window({ url: 'http://localhost/' });
+  const document = window.document;
+  document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html[^>]*>/, '').replace(/<\/html>[\s\S]*$/, '');
+  window.innerWidth = 1280;
+  globalThis.window = window;
+  globalThis.document = document;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.HTMLCanvasElement = window.HTMLCanvasElement;
+  globalThis.Node = window.Node;
+  globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+
+  const { initCalculator } = await import('../src/ui/calculator.js');
+  const { initTheme, currentTheme } = await import('../src/ui/theme.js');
+
+  initTheme({ onToggle: () => {} });
+  initCalculator();
+  document.getElementById('btn-ejemplo').click();
+  await esperarResultado();
+  const antes = document.getElementById('resultado-valor').textContent;
+  assert.ok(Math.abs(parseEses(antes) - 106.69) < 0.2, `P2 base: ${antes}`);
+
+  document.getElementById('btn-tema').click();
+  assert.ok(document.documentElement.classList.contains('dark'), 'la clase dark debe aplicarse en <html>');
+  assert.equal(currentTheme(), 'dark');
+  assert.equal(window.localStorage.getItem('bernoulli-theme'), 'dark', 'la preferencia debe persistirse');
+  assert.equal(document.getElementById('btn-tema').getAttribute('aria-pressed'), 'true');
+  assert.match(document.getElementById('btn-tema-texto').textContent, /Claro/);
+
+  document.getElementById('btn-calcular').click();
+  await esperarResultado();
+  assert.equal(document.getElementById('resultado-valor').textContent, antes, 'el resultado no cambia con el tema');
+  assert.match(document.getElementById('comprobacion-estado').textContent, /Balance verificado/);
+
+  document.getElementById('btn-tema').click();
+  assert.ok(!document.documentElement.classList.contains('dark'), 'vuelve al modo claro');
+  assert.equal(window.localStorage.getItem('bernoulli-theme'), 'light');
 });

@@ -1,7 +1,7 @@
 export function renderGuide(root) {
   root.innerHTML = `
-    <section class="rounded-md border border-rosa-borde bg-white shadow-sm">
-      <h2 class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+    <section class="rounded-md border border-line bg-surface">
+      <h2 class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
         Ecuación general de energía y convención de signos
       </h2>
       <div class="space-y-3 p-4 text-sm">
@@ -16,20 +16,20 @@ export function renderGuide(root) {
       </div>
     </section>
 
-    <section class="rounded-md border border-rosa-borde bg-white shadow-sm">
-      <h2 class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+    <section class="rounded-md border border-line bg-surface">
+      <h2 class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
         Símbolos, significado y unidades
       </h2>
       <div class="overflow-x-auto p-4">
         <table class="w-full min-w-[560px] border-collapse text-sm">
           <thead>
-            <tr class="border-b border-rosa-borde text-left">
+            <tr class="border-b border-line text-left">
               <th scope="col" class="py-2 pr-2 font-bold">Símbolo</th>
               <th scope="col" class="py-2 px-2 font-bold">Significado</th>
               <th scope="col" class="py-2 pl-2 font-bold">Unidad</th>
             </tr>
           </thead>
-          <tbody class="[&>tr]:border-b [&>tr]:border-rosa-borde/50">
+          <tbody class="">
             <tr><td class="py-1.5 pr-2 font-mono">z</td><td class="px-2">Cota geométrica del punto</td><td class="pl-2">m</td></tr>
             <tr><td class="py-1.5 pr-2 font-mono">P</td><td class="px-2">Presión estática (manométrica o absoluta, de forma coherente)</td><td class="pl-2">Pa, kPa, bar, m.c.a., psi</td></tr>
             <tr><td class="py-1.5 pr-2 font-mono">γ = ρg</td><td class="px-2">Peso específico del fluido</td><td class="pl-2">N/m³</td></tr>
@@ -47,8 +47,8 @@ export function renderGuide(root) {
       </div>
     </section>
 
-    <section class="rounded-md border border-rosa-borde bg-white shadow-sm">
-      <h2 class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+    <section class="rounded-md border border-line bg-surface">
+      <h2 class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
         Relaciones auxiliares utilizadas
       </h2>
       <div class="grid gap-2 p-4 font-mono text-sm sm:grid-cols-2">
@@ -67,8 +67,8 @@ export function renderGuide(root) {
       </div>
     </section>
 
-    <section class="rounded-md border border-rosa-borde bg-white shadow-sm">
-      <h2 class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+    <section class="rounded-md border border-line bg-surface">
+      <h2 class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
         Procedimiento para usar la calculadora
       </h2>
       <ol class="list-decimal space-y-1 p-4 pl-8 text-sm">
@@ -80,8 +80,8 @@ export function renderGuide(root) {
       </ol>
     </section>
 
-    <section class="rounded-md border border-rosa-borde bg-white shadow-sm">
-      <h2 class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+    <section class="rounded-md border border-line bg-surface">
+      <h2 class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
         Advertencias y límites del modelo
       </h2>
       <ul class="list-disc space-y-1 p-4 pl-5 text-sm">
@@ -97,8 +97,8 @@ export function renderGuide(root) {
       </ul>
     </section>
 
-    <section class="rounded-md border border-rosa-borde bg-white shadow-sm">
-      <h2 class="rounded-t-md bg-rosa-primario px-4 py-2 text-sm font-bold uppercase tracking-wide text-white">
+    <section class="rounded-md border border-line bg-surface">
+      <h2 class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
         Ejemplo de referencia incluido
       </h2>
       <div class="space-y-2 p-4 text-sm">
@@ -109,12 +109,12 @@ export function renderGuide(root) {
           <li>H_B = 12 m, H_T = 0 m.</li>
           <li>Tubería: L = 88,3 m, ε = 0,0015 mm, ΣK = 1,5, ν = 1,004·10⁻⁶ m²/s, agua ρ ≈ 998,2 kg/m³, g = 9,80665 m/s².</li>
         </ul>
-        <p class="text-xs text-texto/70">
+        <p class="text-xs text-ink-soft">
           Valores de referencia de las capturas (aproximados): V₂ ≈ 2,5465 m/s, f ≈ 0,013891, h_f ≈ 2,7026 m,
           h_m ≈ 0,4958 m, h_L ≈ 3,1983 m y P₂ ≈ 106,6 kPa. La calculadora los obtiene desde las fórmulas;
           pequeñas diferencias se explican por el redondeo de las cifras publicadas.
         </p>
-        <button id="btn-ejemplo-guia" type="button" class="rounded border border-rosa-medio bg-rosa-pale px-3 py-1.5 text-xs font-semibold text-rosa-primario hover:bg-white">
+        <button id="btn-ejemplo-guia" type="button" class="rounded border border-accent bg-page px-3 py-2 text-xs font-semibold text-accent hover:bg-surface sm:py-1.5">
           Cargar el ejemplo en la calculadora
         </button>
       </div>
