@@ -598,15 +598,22 @@ Las capturas muestran una interfaz tipo hoja de cálculo técnica, amplia y orga
 
 ### B.1 Identidad visual
 
-- Fondo general blanco o gris muy claro.
-- Encabezados de sección en azul petróleo/verde azulado oscuro y azul marino.
-- Filas de tablas claras, bordes finos y tipografía compacta pero legible.
-- Campos editables resaltados suavemente en amarillo pálido, como en la hoja de cálculo de referencia.
-- Resultado y estados de comprobación con fondo verde claro cuando son correctos.
+- Fondo general gris muy claro (`#f8fafc`), paneles blancos y bordes finos y escasos (sin sombras fuertes).
+- **Paleta azul pastel/turquesa como identidad**:
+  - Azul pastel principal `#8ECFFF` (acentos y texto destacado en modo oscuro).
+  - Azul eléctrico suave `#56B8FF` (cabeceras de sección, controles principales, foco).
+  - Turquesa hielo `#8CE8DC` (series secundarias de gráficas y detalles).
+  - En modo claro, los azules se oscurecen para contraste sobre fondos claros (p. ej. acento de texto `#1976C4`, cabeceras `#56B8FF` con texto oscuro `#0C1722`), conservando la identidad de la paleta.
+- **Verde `#5CDEA1` exclusivamente para resultados correctos o estados satisfactorios** (en modo oscuro como texto sobre tinte verde oscuro; en modo claro se oscurece el texto verde para legibilidad). Nunca como color decorativo.
+- **Amarillo pastel `#FFD68A` exclusivamente para campos editables**, siempre con texto oscuro encima (contraste alto) en ambos temas. Los campos calculados usan un tono neutro.
+- **Modo oscuro (tema principal de la paleta)**: fondo `#0C1722`, paneles `#162633`, bordes `#2B4253`, texto principal `#EDF5FC`, texto secundario `#A8BBCB`. El modo claro deriva la misma identidad sobre fondo gris azulado claro y paneles blancos.
+- Filas de tablas claras con cebra sutil, bordes finos solo donde aportan (cabecera de tabla) y tipografía compacta pero legible; números alineados con `tabular-nums` y unidades siempre visibles junto al valor.
+- Escala tipográfica coherente y espaciado uniforme entre secciones; priorizar la visibilidad del resultado principal.
 - Errores y advertencias con color contrastante, sin depender solo del color para comunicar el estado.
-- Apariencia técnica, limpia y sobria. Evitar gradientes llamativos, sombras excesivas, grandes espacios vacíos y tarjetas gigantes que hagan perder la sensación de tablero técnico.
-- Utilizar Tailwind para la mayoría de los estilos; reservar CSS propio para ajustes específicos, tablas, gráficas y detalles que Tailwind no resuelva con claridad.
-- Mantener contraste adecuado, foco visible, etiquetas asociadas a sus controles y navegación por teclado.
+- **Modo oscuro completo**: fondos, paneles, campos, tablas, textos, estados, gráficas y controles deben adaptarse con contraste y legibilidad equivalentes al modo claro. Interruptor visible en la cabecera para alternar; la preferencia se persiste (p. ej. `localStorage`) y, en su ausencia, se puede respetar la preferencia del sistema. Aplicar el tema antes del primer pintado para evitar parpadeos.
+- Apariencia técnica, limpia y sobria. Evitar gradientes llamativos, sombras excesivas, grandes espacios vacíos, adornos y tarjetas gigantes que hagan perder la sensación de tablero técnico.
+- Utilizar Tailwind para la mayoría de los estilos; reservar CSS propio (incluidos tokens semánticos de tema claro/oscuro) para ajustes específicos, tablas, gráficas y detalles que Tailwind no resuelva con claridad.
+- Mantener contraste adecuado (también en modo oscuro), foco visible, etiquetas asociadas a sus controles y navegación por teclado.
 
 ### B.2 Navegación superior
 
@@ -636,7 +643,7 @@ Orden y contenido sugeridos:
 5. **Gráfica del perfil hidráulico**, con una anchura que permita leer ejes, leyenda y valores. En pantallas pequeñas, colocarla debajo de las tablas y permitir que use todo el ancho disponible.
 6. **Uso rápido**: pasos breves para seleccionar la incógnita, elegir el modo de pérdidas, completar datos y revisar el balance.
 
-No ocultar información importante solo porque no cabe en una pantalla. En móvil, apilar secciones, conservar las etiquetas y permitir desplazamiento horizontal únicamente dentro de tablas anchas cuando sea necesario.
+No ocultar información importante solo porque no cabe en una pantalla. En móvil, apilar secciones, conservar las etiquetas y permitir desplazamiento horizontal únicamente dentro de tablas anchas cuando sea necesario. El **procedimiento detallado** (fórmula, sustitución, resultado y notas) puede presentarse plegado (`details`/`summary`) por defecto, siempre que la franja de resultado principal conserve el valor, la unidad y el estado visibles; desplegarlo bajo demanda no elimina información.
 
 ### B.4 Tabla de datos
 
@@ -669,6 +676,7 @@ Requisitos:
 - Si la información solo permite calcular dos puntos, representar solo esos dos puntos conectados. No insinuar que la distribución entre ellos se conoce exactamente.
 - Si el cálculo no es válido o faltan datos para una serie, mostrar un estado vacío explicativo en lugar de dibujar ceros falsos.
 - Debe redimensionarse correctamente al cambiar el tamaño de la ventana y ser legible en móvil.
+- Las series, ejes, leyenda y tooltips deben ser legibles **tanto en modo claro como en modo oscuro**, adaptando la paleta al tema activo y re-renderizando al alternarlo.
 - Incluir accesibilidad básica: nombre/título descriptivo y resumen textual de los valores.
 - La gráfica no puede tapar la tabla ni provocar que toda la página se desborde horizontalmente.
 
@@ -763,6 +771,9 @@ El trabajo se considera aceptable cuando:
 - En casos incompletos o inválidos se muestran mensajes útiles y no resultados falsos.
 - La guía explica las ecuaciones realmente utilizadas.
 - La aplicación se adapta a escritorio y móvil.
+- El modo oscuro completo funciona mediante el interruptor visible, se conserva la preferencia entre sesiones y las gráficas y estados mantienen contraste y legibilidad.
+- En móvil (ancho < lg) el tablero y todos sus rejillados internos usan **una sola columna**; a partir de `sm`/`lg` se escalan a 2–3 columnas progresivamente.
+- El identidad cromática sigue las reglas de B.1: azul pastel/turquesa como acento (con la paleta `#8ECFFF`/`#56B8FF`/`#8CE8DC` y fondo oscuro `#0C1722`), verde `#5CDEA1` solo para aciertos, amarillo pastel `#FFD68A` solo para campos editables.
 - `npm run build` termina correctamente.
 
 ## H. Entrega final del agente
@@ -775,3 +786,98 @@ Al terminar, informar brevemente:
 - Resultado real de `npm run build`.
 - Comandos exactos para ejecutar el proyecto en desarrollo y previsualizar la versión de producción.
 - Limitaciones pendientes, si las hay. No declarar completas las funcionalidades que no estén implementadas.
+
+## I. Reglas de accesibilidad aprobadas (WCAG 2.2 AA)
+
+Estas reglas complementan las secciones anteriores y son de cumplimiento obligatorio en
+cualquier cambio de interfaz. No sustituyen a B.1 (identidad cromática): se aplican
+ajustando contrastes sin romper la paleta acordada.
+
+### I.1 Jerarquía y semántica
+
+- Un solo `h1` por página; los títulos de sección son `h2` y los subgrupos internos `h3`
+  (por ejemplo, «Modo de pérdidas» y «Lista de accesorios»). No se saltan niveles.
+- Cada sección se etiqueta con `aria-labelledby` apuntando a su título.
+- Controles nativos (`button`, `select`, `input`, `details`); no simular controles con `div`.
+
+### I.2 Etiquetas y nombres accesibles
+
+- Todo `input`, `select` y `textarea` tiene `label[for]`, etiqueta envolvente o `aria-label`.
+- Las unidades se ven junto al campo (columna, selector de unidad o texto de la etiqueta).
+- Los grupos de radios usan `role="radiogroup"` con `aria-labelledby` a un `h3` visible.
+- Las listas dinámicas (accesorios) se etiquetan; cada fila declara `aria-label` completo.
+- No se comunica información solo con color: los editables/calculados llevan texto
+  («Editable»/«Calculado») además del relleno.
+
+### I.3 Teclado y foco
+
+- El enlace «Saltar al contenido» apunta a un destino con `tabindex="-1"`.
+- Pestañas con patrón ARIA completo: `role="tablist"` (solo contiene pestañas; el botón de
+  tema está fuera), `tabindex` móvil (0 en la activa, −1 en las demás), flechas y Home/End.
+- El foco es siempre visible: `:focus-visible` con `--focus` (≥3:1 sobre el fondo). Dentro de
+  la franja azul `bg-accent-strong` se usa la regla `.franja-resultado :focus-visible` con
+  contorno de `--on-accent` (el anillo blanco o azul claro no alcanza 3:1).
+- Las regiones con desplazamiento (`overflow-x-auto`/`overflow-y-auto`) llevan
+  `tabindex="0"`, `role="region"` y `aria-label` para poder recorrerlas con teclado.
+- Los valores calculados o de incógnita usan `readonly` (nunca `disabled`): siguen siendo
+  enfocables y legibles; el estado se comunica con el texto «calculado»/«calculada».
+
+### I.4 Errores y validaciones
+
+- Un campo inválido recibe `aria-invalid="true"`, un mensaje visible propio
+  (clase `.msg-error`, con glifo ⚠ oculto para lectores) y `aria-describedby` hacia ese
+  mensaje; al corregir, ambos se limpian.
+- Cada mensaje explica el problema **y** cómo corregirlo (rango permitido, formato numérico
+  con coma o punto decimal, dejar vacío si no aplica).
+- El resumen `#resultado-alertas` mantiene `role="alert"` y lista todos los fallos; indica
+  además que el mensaje de cada campo aparece junto al campo.
+- Ningún mensaje inyecta texto del usuario sin escapar: usar `escapeHtml` en todo
+  `innerHTML` construido dinámicamente.
+- El estado `#resultado-estado` (`role="status"`) añade un `span.sr-only` con
+  «incógnita = valor unidad» para que el lector anuncie el resultado, no solo el veredicto.
+
+### I.5 Gráficas (Chart.js)
+
+- Cada lienzo lleva `role="img"`, `aria-label` descriptivo y `aria-describedby` a su
+  resumen textual (`#chart-perfil-resumen`, `#chart-barras-resumen`,
+  `#chart-perdidas-resumen`). Los resúmenes **no** son regiones vivas.
+- Los tres resúmenes contienen los mismos números que las tablas (cotas, HGL/EGL,
+  componentes, h_f/h_m/h_L); si no hay datos, explican qué falta.
+- Series y bordes ≥3:1 contra el fondo del tema (blanco en claro, panel oscuro en oscuro);
+  los títulos, ejes, leyendas y etiquetas de valor ≥4,5:1.
+- Las etiquetas de valor se dibujan fuera de las barras (fondo limpio) o, dentro de barras
+  apiladas, con color de alta contraste del tema (`etiquetaDentro`).
+- Las paletas viven en `PALETTAS` de `src/ui/chart.js`; los contrastes están fijados por
+  `tests/a11y.test.js` y deben seguir cumpliéndose.
+
+### I.6 Responsive y objetivos táctiles
+
+- En móvil (≤640px) los campos y selectores miden 16px (evita el zoom automático de iOS)
+  y alcanzan 40px de alto (`.campo-editable`, `.campo-unidad`).
+- Los botones principales usan `py-2 sm:py-1.5` (mayor altura en móvil, densidad en
+  escritorio).
+- Tablas anchas se desplazan dentro de su contenedor; el tablero usa una sola columna por
+  debajo de `lg`.
+
+### I.7 Contraste verificado (tokens)
+
+Umbrales mínimos fijados por `tests/a11y.test.js` (texto ≥4,5:1; foco y elementos gráficos
+≥3:1) en ambos temas. Tokens con ajuste aprobado:
+
+- Claro: `--focus: #1976c4`, `--accent: #1873bd`, `--ink-soft: #546a7c` (margen sobre
+  `--page` y `--surface-2`).
+- Gráficas claras: series en torno a `#7a93a8`/`#2a8fd8`/`#17938a`/`#3f97db`/`#1f9e63`,
+  pérdidas `#1976c4` y `#0f7f74`, etiqueta interior `#ffffff`.
+- Oscuro: paleta existente (todos los pares ≥7:1); etiqueta interior `#0c1722`.
+
+No se reintroducen colores por debajo de estos umbrales sin actualizar el test y revisar
+ambos temas.
+
+### I.8 Verificación obligatoria
+
+- `npm test` incluye `tests/a11y.test.js` (estructura, nombres accesibles, ARIA de
+  pestañas, scroll regions, errores por campo, teclado simulado, contrastes de tokens y de
+  Chart.js, resúmenes de gráficas y reglas móviles). Debe pasar siempre.
+- Antes de entregar, revisar además en navegador: tabulación completa, flechas en las
+  pestañas, foco visible en la franja azul, mensaje de campo inválido, ambos temas y un
+  viewport móvil (≈360px).
