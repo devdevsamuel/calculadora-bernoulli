@@ -1,0 +1,22 @@
+{
+  "name": "calculadora-bernoulli",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Calculadora universal de la ecuación de Bernoulli para ingeniería civil",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "happy-dom": "^20.14.6",
+    "tailwindcss": "^4.3.3",
+    "vite": "^6.4.4"
+  }
+}

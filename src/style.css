@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  --color-fondo: #fff5f7;
+  --color-rosa-primario: #be185d;
+  --color-rosa-medio: #ec4899;
+  --color-rosa-pale: #fdf2f8;
+  --color-rosa-borde: #fbcfe8;
+  --color-exito-fondo: #dcfce7;
+  --color-exito-texto: #166534;
+  --color-aviso-fondo: #fef3c7;
+  --color-aviso-texto: #92400e;
+  --color-error-fondo: #ffe4e6;
+  --color-error-texto: #9d174d;
+  --color-info-fondo: #e0f2fe;
+  --color-info-texto: #075985;
+  --color-texto: #334155;
+}
+
+@layer base {
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-rosa-medio);
+    outline-offset: 1px;
+  }
+}
+
+@layer components {
+  .campo-editable {
+    border: 1px solid var(--color-rosa-borde);
+    background: var(--color-rosa-pale);
+    border-radius: 0.25rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-texto);
+  }
+
+  .campo-editable:focus {
+    border-color: var(--color-rosa-medio);
+    outline: 2px solid var(--color-rosa-medio);
+    outline-offset: 0;
+  }
+
+  .campo-editable[aria-invalid="true"] {
+    border-color: var(--color-error-texto);
+    background: var(--color-error-fondo);
+  }
+
+  .campo-editable:disabled,
+  .campo-calc {
+    border: 1px solid #bae6fd;
+    background: #f0f9ff;
+    border-radius: 0.25rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-info-texto);
+  }
+
+  .campo-editable:disabled {
+    cursor: not-allowed;
+    opacity: 0.9;
+  }
+
+  .campo-unidad {
+    border: 1px solid #bae6fd;
+    background: #f0f9ff;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.3rem;
+    font-size: 0.75rem;
+    color: var(--color-info-texto);
+  }
+
+  .tab-btn[aria-selected="true"] {
+    background: var(--color-rosa-primario);
+    color: #ffffff;
+    border-color: var(--color-rosa-primario);
+  }
+
+  .tab-btn[aria-selected="false"] {
+    background: var(--color-rosa-pale);
+    color: var(--color-rosa-primario);
+    border-color: var(--color-rosa-borde);
+  }
+
+  .estado-ok {
+    background: var(--color-exito-fondo);
+    color: var(--color-exito-texto);
+  }
+
+  .estado-error {
+    background: var(--color-error-fondo);
+    color: var(--color-error-texto);
+  }
+
+  .estado-aviso {
+    background: var(--color-aviso-fondo);
+    color: var(--color-aviso-texto);
+  }
+
+  .estado-info {
+    background: var(--color-info-fondo);
+    color: var(--color-info-texto);
+  }
+}
