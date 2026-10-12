@@ -1,5 +1,10 @@
 # Especificación para OpenCode: Calculadora universal de la ecuación de Bernoulli
 
+> **Documentación del proyecto (consultar antes de modificar):** esta especificación (reglas
+> vigentes), `docs/REGISTRO_DECISIONES_PROYECTO.md` (registro maestro de decisiones,
+> restricciones, contradicciones y estado verificado — ver sección K) y
+> `docs/BITACORA_DESARROLLO.md` (historial de proceso con evidencia — ver sección J).
+
 ## 1. Objetivo del proyecto
 
 Construir una calculadora web para ingeniería civil que permita
@@ -881,3 +886,44 @@ ambos temas.
 - Antes de entregar, revisar además en navegador: tabulación completa, flechas en las
   pestañas, foco visible en la franja azul, mensaje de campo inválido, ambos temas y un
   viewport móvil (≈360px).
+
+## J. Bitácora de desarrollo académico
+
+La bitácora técnica y académica del proyecto vive en **`docs/BITACORA_DESARROLLO.md`**.
+Registra el proceso real de desarrollo (objetivo académico, decisiones técnicas y
+matemáticas, construcción cronológica, diseño y UX, uso de IA, validación y reflexión) a
+partir de fuentes verificables, con las etiquetas de evidencia `[HV]` (hecho verificado),
+`[DD]` (decisión documentada), `[I]` (inferencia) y `[PC]` (pendiente de confirmar).
+
+**Instrucción de mantenimiento:** tras cambios importantes del proyecto —nuevas
+funcionalidades, corrección de errores relevantes, decisiones técnicas o matemáticas
+nuevas, cambios de paleta o de accesibilidad, nuevas suites de pruebas, commits relevantes
+o actualizaciones de esta especificación—, actualizar `docs/BITACORA_DESARROLLO.md` en la
+sección correspondiente sin borrar la evidencia ya registrada ni las etiquetas de nivel de
+verificación. Esta bitácora es documentación de proceso: no sustituye esta especificación
+ni las pruebas, y su modificación no altera el código ni el comportamiento de la
+aplicación.
+
+## K. Registro maestro de decisiones del proyecto
+
+El registro maestro vive en **`docs/REGISTRO_DECISIONES_PROYECTO.md`**. Consolida, sin
+duplicar esta especificación, las decisiones y restricciones del proyecto con etiquetas de
+fidelidad (`[C]` confirmada, `[V]` verificada, `[P]` pendiente, `[?]` desconocida):
+objetivo y alcance, arquitectura, decisiones matemáticas e hidráulicas, incógnitas y
+requisitos de suficiencia de datos, unidades y tolerancias, pérdidas y factor de fricción,
+casos de prueba y resultados de referencia, procedimiento paso a paso, gráficas, diseño
+visual y modo oscuro, accesibilidad, restricciones de modificación, estado actual y
+pendientes, historial de decisiones con fuentes y un apartado de contradicciones abiertas.
+
+**Instrucción de consulta obligatoria:** antes de modificar el proyecto —motor, interfaz,
+paleta, pruebas o documentación—, leer `docs/REGISTRO_DECISIONES_PROYECTO.md` (secciones
+§12 «Restricciones», §13 «Estado actual» y §14 «Contradicciones») junto con esta
+especificación, para no revertir decisiones confirmadas ni pisar trabajo pendiente.
+
+**Instrucción de mantenimiento:** al confirmar o rechazar una decisión, añadir o retirar
+una restricción, cambiar el estado de pruebas o funcionalidades, resolver una
+contradicción del registro o cerrar un pendiente, actualizar el registro maestro
+ampliando (sin borrar evidencia ni degradar etiquetas) y con nueva fecha y fuente. ante
+conflicto entre documentos manda: esta especificación para las reglas vigentes, el
+registro maestro para decisiones/restricciones/estado, la bitácora para el historial con
+evidencia, y las pruebas (`npm test`) para el comportamiento real.
