@@ -111,6 +111,9 @@
               <button id="btn-restablecer" type="button" class="rounded border border-on-accent/60 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-white/10 sm:py-1.5">
                 Restablecer
               </button>
+              <button id="btn-informe" type="button" class="rounded border border-on-accent/60 px-4 py-2 text-sm font-semibold text-on-accent hover:bg-white/10 sm:py-1.5">
+                Generar informe
+              </button>
             </div>
           </div>
           <div
@@ -121,20 +124,25 @@
             <div class="min-w-0">
               <p id="resultado-descripcion" class="text-sm font-semibold text-ink-soft">Resultado</p>
               <p class="mt-1 flex items-baseline gap-2">
-                <span id="resultado-valor" class="text-3xl font-bold tabular-nums text-accent sm:text-4xl">—</span>
+                <span id="resultado-valor" class="min-w-[6ch] text-3xl font-bold tabular-nums text-accent sm:text-4xl">—</span>
                 <span id="resultado-unidad" class="text-base font-semibold text-ink-soft"></span>
               </p>
             </div>
             <p
               id="resultado-estado"
-              class="rounded px-3 py-1.5 text-sm font-semibold"
+              class="rounded px-3 py-1.5 text-sm font-semibold w-full min-h-12 md:w-72 flex items-center"
               role="status"
               aria-live="polite"
             >
               Complete los datos y pulse Calcular.
             </p>
           </div>
-          <div id="resultado-alertas" class="space-y-2 px-4 pb-4"></div>
+          <div
+            id="resultado-alertas"
+            tabindex="0"
+            aria-label="Avisos de validación y resultados"
+            class="min-h-11 max-h-44 space-y-2 overflow-y-auto px-4 pb-4"
+          ></div>
         </section>
 
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -162,6 +170,10 @@
                   <label for="gen-nu" class="mb-1 block text-xs font-semibold">ν cinemática (m²/s)</label>
                   <input id="gen-nu" type="text" inputmode="decimal" class="campo-editable w-full" />
                 </div>
+                <p class="col-span-2 text-xs text-ink-soft sm:col-span-3">
+                  ν es editable: si el enunciado indica otra viscosidad (p. ej. 1×10⁻⁴ m²/s), cámbiela aquí —
+                  Re y el factor de fricción dependen directamente de ella. El preset de agua asume 20 °C.
+                </p>
                 <div>
                   <label for="gen-gamma" class="mb-1 block text-xs font-semibold">Peso específico γ=ρg (N/m³) · calculado</label>
                   <input id="gen-gamma" type="text" readonly aria-readonly="true" class="campo-calc w-full" />
@@ -316,6 +328,12 @@
                     <strong>Calculado</strong> (relleno azul pálido): la aplicación lo obtiene de otros datos.
                   </p>
                   <p>Un campo vacío no se convierte en cero.</p>
+                  <p id="puntos-aviso" class="estado-aviso hidden rounded px-2 py-1"></p>
+                  <p>
+                    Depósitos abiertos: use P = 0 (manométrica) y V = 0 en cada superficie libre.
+                    Si el punto 2 es la sección de salida del tubo, deje su V o Q vacío (será la incógnita)
+                    y excluya la pérdida de salida (K = 1) del ΣK. Detalle en la pestaña Guía.
+                  </p>
                 </div>
               </div>
             </section>
@@ -540,7 +558,7 @@
             Composición de las pérdidas de carga (m)
           </h2>
           <div class="p-4">
-            <div id="chart-perdidas-wrap" class="relative mx-auto h-60 w-full max-w-2xl sm:h-72">
+            <div id="chart-perdidas-wrap" class="relative mx-auto h-64 w-full max-w-4xl sm:h-80">
               <canvas
                 id="chart-perdidas"
                 role="img"
@@ -611,11 +629,37 @@
 
       <!-- ==================== PESTAÑA GUÍA ==================== -->
       <section id="panel-guia" role="tabpanel" aria-labelledby="tab-guia" hidden class="space-y-4"></section>
+
+      <!-- ==================== INFORME TÉCNICO IMPRIMIBLE ==================== -->
+      <div id="informe-aviso" role="alert" hidden class="mt-4"></div>
+      <section id="informe" aria-labelledby="informe-titulo" hidden class="mt-4">
+        <div class="informe-hoja">
+          <header class="informe-cabecera">
+            <div class="informe-cabecera-fila">
+              <h2 id="informe-titulo" tabindex="-1">Informe técnico — Calculadora de la ecuación de Bernoulli</h2>
+              <div class="no-imprimir informe-acciones informe-acciones-cabecera">
+                <button id="btn-informe-minimizar" type="button" class="informe-boton informe-boton-secundario" aria-expanded="true" aria-controls="informe-cuerpo">Minimizar</button>
+                <button id="btn-informe-imprimir" type="button" class="informe-boton">Imprimir / Guardar PDF</button>
+                <button id="btn-informe-cerrar" type="button" class="informe-boton informe-boton-secundario">Cerrar informe</button>
+              </div>
+            </div>
+            <p id="informe-meta" class="informe-meta"></p>
+          </header>
+          <div id="informe-cuerpo">
+            <div id="informe-contenido"></div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer class="mx-auto max-w-7xl px-4 pb-8 pt-2 text-xs text-ink-soft">
-      Calculadora de Bernoulli · JavaScript vanilla + Vite + Tailwind CSS + Chart.js ·
-      Factor de fricción de Darcy (no Fanning). Los resultados dependen de los datos de entrada y de las hipótesis del modelo.
+      <p>
+        Calculadora de Bernoulli · JavaScript vanilla + Vite + Tailwind CSS + Chart.js ·
+        Factor de fricción de Darcy (no Fanning). Los resultados dependen de los datos de entrada y de las hipótesis del modelo.
+      </p>
+      <p class="mt-1">
+        Proyecto creado para Mecanica de Fluidos - Facultad de Ingenieria civil - Universidad del Cauca - 2026
+      </p>
     </footer>
 
     <script type="module" src="/src/main.js"></script>

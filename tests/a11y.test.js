@@ -308,39 +308,54 @@ test('a11y: teclado en pestañas (flechas, Home/End) mueve foco y selección', a
   assert.equal(tabGuia.getAttribute('aria-selected'), 'true', 'ArrowLeft también navega hacia atrás');
 });
 
-test('a11y: un valor inválido muestra mensaje visible junto al campo y en el resumen', async () => {
+test('a11y: un valor inválido marca el campo, avisa y limpia el resultado anterior', async () => {
   montar();
   const { initCalculator } = await import('../src/ui/calculator.js');
   initCalculator();
+  document.getElementById('btn-ejemplo').click();
+  await new Promise((r) => setTimeout(r, 700));
+  const valorPrevio = document.getElementById('resultado-valor').textContent.trim();
+  assert.notEqual(valorPrevio, '—', 'el ejemplo debe producir un resultado visible');
 
   const campo = document.getElementById('p1-z');
   campo.value = 'abc';
   campo.dispatchEvent(new window.Event('input', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 400));
 
-  assert.equal(campo.getAttribute('aria-invalid'), 'true');
-  const describedBy = campo.getAttribute('aria-describedby');
-  assert.ok(describedBy, 'el campo inválido debe describir su error');
-  const msg = document.getElementById(describedBy.split(/\s+/).pop());
-  assert.ok(msg, 'el mensaje de error debe existir en el DOM');
-  assert.match(msg.className, /msg-error/, 'el mensaje debe usar la clase de error visible');
-  assert.match(msg.textContent, /no es un número válido/, 'el mensaje debe explicar el problema');
-  assert.match(msg.textContent, /coma decimal/, 'el mensaje debe explicar cómo corregirlo');
+  assert.equal(campo.getAttribute('aria-invalid'), 'true', 'el campo inválido queda marcado');
+  assert.equal(document.querySelector('.msg-error'), null, 'ya no se insertan mensajes adyacentes que desordenen el layout');
 
   const alerta = document.querySelector('#resultado-alertas [role="alert"]');
   assert.ok(alerta, 'el resumen de errores debe anunciarse');
   assert.match(alerta.textContent, /Cota z1/, 'el resumen debe nombrar el campo con error');
-  assert.match(alerta.textContent, /cada campo con un valor incorrecto/i, 'el resumen debe explicar dónde corregir');
+  assert.match(alerta.textContent, /no es un número válido/, 'el resumen explica el problema');
+  assert.match(alerta.textContent, /coma decimal/, 'el resumen explica cómo corregirlo');
+  assert.match(alerta.textContent, /se limpian hasta que el cálculo vuelva a ser válido/i, 'el resumen aclara que no se conserva un resultado engañoso');
+
+  assert.equal(
+    document.getElementById('resultado-valor').textContent.trim(),
+    '—',
+    'el resultado anterior se limpia: no debe persistir información errónea',
+  );
+  assert.equal(
+    document.getElementById('comprobacion-estado').textContent.trim(),
+    '—',
+    'la comprobación del balance también se limpia',
+  );
 
   campo.value = '102';
   campo.dispatchEvent(new window.Event('input', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 400));
   assert.equal(campo.hasAttribute('aria-invalid'), false, 'al corregir se limpia aria-invalid');
-  assert.equal(document.getElementById('error-p1-z'), null, 'al corregir desaparece el mensaje visible');
   const alertaFinal = document.querySelector('#resultado-alertas [role="alert"]');
   assert.ok(
     !alertaFinal || !alertaFinal.textContent.includes('abc'),
     'el resumen ya no debe mencionar el valor corregido',
+  );
+  assert.notEqual(
+    document.getElementById('resultado-valor').textContent.trim(),
+    '—',
+    'al corregir el campo vuelve a calcularse el resultado',
   );
 });
 
@@ -355,9 +370,11 @@ test('a11y: los mensajes de validación indican el rango permitido', async () =>
   await new Promise((r) => setTimeout(r, 400));
 
   assert.equal(g.getAttribute('aria-invalid'), 'true');
-  const msg = document.getElementById(g.getAttribute('aria-describedby'));
-  assert.match(msg.textContent, /mayor que 0/, 'debe indicar el rango permitido');
-  assert.match(msg.textContent, /Gravedad g/, 'debe nombrar el campo');
+  const alerta = document.querySelector('#resultado-alertas [role="alert"]');
+  assert.ok(alerta, 'el resumen debe anunciarse');
+  assert.match(alerta.textContent, /mayor que 0/, 'debe indicar el rango permitido');
+  assert.match(alerta.textContent, /Gravedad g/, 'debe nombrar el campo');
+  assert.equal(document.getElementById('error-gen-g'), null, 'no se insertan mensajes adyacentes al campo');
 
   const rho = document.getElementById('gen-rho');
   rho.value = '998.2';
@@ -365,8 +382,53 @@ test('a11y: los mensajes de validación indican el rango permitido', async () =>
   g.value = '9.80665';
   g.dispatchEvent(new window.Event('input', { bubbles: true }));
   await new Promise((r) => setTimeout(r, 400));
-  assert.equal(document.getElementById('error-gen-g'), null, 'el mensaje desaparece al corregir');
+  assert.equal(g.hasAttribute('aria-invalid'), false, 'al corregir se limpia el marcado del campo');
 });
+
+test('a11y: con errores de campo se siguen mostrando los faltantes, el error arriba y la lista con scroll', async () => {
+  montar();
+  const { initCalculator } = await import('../src/ui/calculator.js');
+  initCalculator();
+  document.getElementById('btn-ejemplo').click();
+  await new Promise((r) => setTimeout(r, 700));
+
+  const campo = document.getElementById('p1-z');
+  campo.value = 'abc';
+  campo.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 400));
+
+  const alerta = document.querySelector('#resultado-alertas [role="alert"]');
+  assert.ok(alerta, 'el resumen debe anunciarse');
+  const texto = alerta.textContent;
+  const iError = texto.indexOf('Cota z1');
+  const iFalta = texto.indexOf('Falta: cota z1');
+  assert.ok(iError >= 0, 'el resumen recoge el error de campo');
+  assert.ok(iFalta >= 0, 'el resumen sigue listando los datos faltantes');
+  assert.ok(iError < iFalta, 'el error de campo aparece en la parte superior de la lista, antes de los faltantes');
+
+  const lista = alerta.querySelector('.lista-alertas');
+  assert.ok(lista, 'los mensajes viven en una lista interna');
+  assert.equal(lista.tagName, 'UL');
+  assert.ok(lista.className.includes('overflow-y-auto'), 'la lista tiene scroll interno');
+  assert.ok(lista.className.includes('max-h'), 'la lista limita su altura para evitar saltos de pantalla');
+  assert.ok(lista.querySelectorAll('li').length >= 2, 'la lista contiene el error y al menos un faltante');
+});
+
+test('a11y: con resultado válido el contenedor de avisos se oculta y solo queda el bloque de resultado', async () => {
+  montar();
+  const { initCalculator } = await import('../src/ui/calculator.js');
+  initCalculator();
+  document.getElementById('btn-ejemplo').click();
+  await new Promise((r) => setTimeout(r, 700));
+
+  const box = document.getElementById('resultado-alertas');
+  assert.ok(box.classList.contains('hidden'), 'con resultado final válido el contenedor de avisos queda oculto');
+  assert.equal(box.innerHTML.trim(), '', 'el contenedor oculto no conserva contenido');
+  const bloque = document.getElementById('resultado-bloque');
+  assert.ok(!bloque.classList.contains('hidden'), 'el bloque de resultado permanece visible');
+  assert.notEqual(document.getElementById('resultado-valor').textContent.trim(), '—', 'el resultado sigue mostrándose');
+});
+
 
 test('gráficas: alternativas textuales con los mismos datos tras cargar el ejemplo', async () => {
   montar();

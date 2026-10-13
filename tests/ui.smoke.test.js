@@ -250,3 +250,294 @@ test('humo de tema: interruptor aplica modo oscuro, persiste y el recálculo con
   assert.ok(!document.documentElement.classList.contains('dark'), 'vuelve al modo claro');
   assert.equal(window.localStorage.getItem('bernoulli-theme'), 'light');
 });
+
+test('layout: un valor inválido no añade nodos a la celda ni desordena la tabla', async () => {
+  const htmlSrc = readFileSync(join(root, 'index.html'), 'utf8');
+  const css = readFileSync(join(root, 'src/style.css'), 'utf8');
+  const window = new Window({ url: 'http://localhost/' });
+  const document = window.document;
+  document.documentElement.innerHTML = htmlSrc
+    .replace(/^[\s\S]*?<html[^>]*>/, '')
+    .replace(/<\/html>[\s\S]*$/, '');
+  window.innerWidth = 1280;
+  globalThis.window = window;
+  globalThis.document = document;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.HTMLCanvasElement = window.HTMLCanvasElement;
+  globalThis.Node = window.Node;
+  globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+
+  const { initCalculator } = await import('../src/ui/calculator.js');
+  initCalculator();
+
+  const campo = document.getElementById('p1-z');
+  const td = campo.parentElement;
+  const hijosAntes = td.children.length;
+  campo.value = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  campo.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await new Promise((r) => setTimeout(r, 400));
+
+  assert.equal(campo.getAttribute('aria-invalid'), 'true', 'el campo queda marcado');
+  assert.equal(document.querySelector('.msg-error'), null, 'no se insertan mensajes adyacentes');
+  assert.equal(td.children.length, hijosAntes, 'la celda no gana nodos: el contenedor no puede crecer');
+  assert.equal(td.querySelectorAll('input').length, 1, 'la celda sigue teniendo solo su input');
+
+  const alerta = document.querySelector('#resultado-alertas [role="alert"]');
+  assert.ok(alerta, 'el resumen superior announce el error');
+  assert.ok(alerta.textContent.includes('aaaa'), 'el resumen recoge el valor inválido');
+
+  assert.doesNotMatch(css, /\.msg-error\s*{/, 'la clase .msg-error ya no se usa en CSS');
+  assert.match(css, /\.tabla-limpia tbody td\s*{[^}]*vertical-align:\s*top/s, 'las celdas de la tabla se alinean arriba');
+  assert.match(css, /\.estado-error,\s*#pipe-warn,\s*#resultado-alertas li\s*{[^}]*overflow-wrap:\s*anywhere/s, 'el resumen de alertas parte textos largos');
+  assert.match(htmlSrc, /id="resultado-alertas"[^>]*min-h-11/, 'la zona de alertas reserva altura estable');
+  assert.match(htmlSrc, /id="resultado-alertas"[^>]*max-h-44/, 'la zona de alertas limita su altura con scroll');
+  assert.match(htmlSrc, /id="resultado-alertas"[^>]*tabindex="0"/, 'la región con scroll es accesible por teclado');
+  assert.match(css, /\.lista-alertas\s*{/, 'la lista interna de avisos tiene estilo propio para el scroll');
+  assert.match(htmlSrc, /id="chart-perdidas-wrap"[^>]*h-64[^>]*sm:h-80/s, 'la gráfica de pérdidas usa el mismo tamaño que las demás');
+});
+
+test('accesorios: K admite decimales con coma o punto y ΣK usa n·K', async () => {
+  const html = readFileSync(join(root, 'index.html'), 'utf8');
+  const window = new Window({ url: 'http://localhost/' });
+  const document = window.document;
+  document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html[^>]*>/, '').replace(/<\/html>[\s\S]*$/, '');
+  window.innerWidth = 1280;
+  globalThis.window = window;
+  globalThis.document = document;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.HTMLCanvasElement = window.HTMLCanvasElement;
+  globalThis.Node = window.Node;
+  globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+
+  const { initCalculator } = await import('../src/ui/calculator.js');
+  initCalculator();
+
+  document.getElementById('btn-agregar-accesorio').click();
+  const kInput = document.querySelector('#accesorios-lista [data-campo="K"]');
+  const nInput = document.querySelector('#accesorios-lista [data-campo="n"]');
+  assert.ok(kInput && nInput, 'los campos n y K existen');
+  assert.equal(kInput.getAttribute('inputmode'), 'decimal', 'K usa inputmode decimal');
+  assert.equal(kInput.type, 'text', 'K es texto para aceptar coma o punto');
+
+  nInput.value = '2';
+  nInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  kInput.value = '0,5';
+  kInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.equal(kInput.getAttribute('aria-invalid'), null, 'la coma no marca inválido');
+  const sumK = document.getElementById('pipe-sumK').value;
+  assert.equal(Number(String(sumK).replace(',', '.')), 1, `ΣK con coma = 1 (recibido ${sumK})`);
+
+  kInput.value = '0.25';
+  kInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.equal(Number(String(document.getElementById('pipe-sumK').value).replace(',', '.')), 0.5, 'punto decimal también');
+
+  kInput.value = 'abc';
+  kInput.dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.equal(kInput.getAttribute('aria-invalid'), 'true', 'texto no numérico marca inválido');
+  assert.equal(Number(String(document.getElementById('pipe-sumK').value).replace(',', '.')), 0.5, 'ΣK no se corrompe con texto inválido');
+});
+
+test('incógnita: al recalcular sin solución se borra la celda calculada', async () => {
+  const html = readFileSync(join(root, 'index.html'), 'utf8');
+  const window = new Window({ url: 'http://localhost/' });
+  const document = window.document;
+  document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html[^>]*>/, '').replace(/<\/html>[\s\S]*$/, '');
+  window.innerWidth = 1280;
+  globalThis.window = window;
+  globalThis.document = document;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.HTMLCanvasElement = window.HTMLCanvasElement;
+  globalThis.Node = window.Node;
+  globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+
+  const { initCalculator } = await import('../src/ui/calculator.js');
+  initCalculator();
+
+  document.getElementById('btn-ejemplo').click();
+  await esperarResultado();
+  const celda = document.getElementById('p2-P');
+  assert.ok(celda.value !== '' && celda.value !== '—', `la celda P2 se rellena: ${celda.value}`);
+  assert.ok(Math.abs(parseEses(document.getElementById('resultado-valor').textContent) - 106.69) < 0.2);
+
+  const q2 = document.getElementById('p2-Q');
+  q2.value = '';
+  q2.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await esperarResultado();
+
+  assert.equal(celda.value, '', 'la celda de la incógnita se vacía al perder la solución');
+  assert.equal(document.getElementById('resultado-valor').textContent, '—', 'el banner no conserva el número viejo');
+  assert.match(document.getElementById('resultado-estado').textContent, /Faltan datos|Sin solución|Datos inválidos/i);
+
+  document.getElementById('btn-ejemplo').click();
+  await esperarResultado();
+  assert.ok(celda.value !== '', 'vuelve a calcularse al cargar el ejemplo');
+  const z2 = document.getElementById('p2-z');
+  z2.value = 'aaaa';
+  z2.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await esperarResultado();
+  assert.equal(celda.value, '', 'con error de campo también se borra la celda de la incógnita');
+  assert.equal(document.getElementById('resultado-valor').textContent, '—', 'con error de campo el banner queda limpio');
+  assert.equal(
+    document.getElementById('comprobacion-estado').textContent.trim(),
+    '—',
+    'la comprobación no conserva un balance de un cálculo ya inválido',
+  );
+});
+
+test('modo ingresadas con panel de tubería completo calcula f de referencia y explica el modo', async () => {
+  const html = readFileSync(join(root, 'index.html'), 'utf8');
+  const window = new Window({ url: 'http://localhost/' });
+  const document = window.document;
+  document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html[^>]*>/, '').replace(/<\/html>[\s\S]*$/, '');
+  window.innerWidth = 1280;
+  globalThis.window = window;
+  globalThis.document = document;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.HTMLCanvasElement = window.HTMLCanvasElement;
+  globalThis.Node = window.Node;
+  globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+
+  const { initCalculator } = await import('../src/ui/calculator.js');
+  initCalculator();
+
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    el.value = v;
+    el.dispatchEvent(new window.Event('input', { bubbles: true }));
+    el.dispatchEvent(new window.Event('change', { bubbles: true }));
+  };
+
+  assert.equal(
+    document.querySelector('input[name="modo-perdidas"]:checked').value,
+    'ingresadas',
+    'el modo por defecto es «ingresadas»',
+  );
+  set('pipe-L', '88.3');
+  set('pipe-D', '150');
+  set('pipe-eps', '0.0015');
+  set('pipe-Q', '45');
+  set('pipe-sumK', '1.5');
+  set('p1-z', '102');
+  set('p1-P', '150');
+  set('p1-V', '1.4324');
+  set('p2-z', '115');
+  await esperarResultado();
+
+  const f = document.getElementById('pipe-f').textContent;
+  assert.notEqual(f, '—', 'el factor de fricción de referencia debe calcularse');
+  assert.match(f, /Swamee-Jain/, `método visible en: ${f}`);
+  assert.match(f, /0,013/, `valor de referencia ~0,0139 en: ${f}`);
+  assert.match(document.getElementById('pipe-Re').textContent, /380/, 'Reynolds también visible');
+  assert.equal(document.getElementById('pipe-regimen').textContent, 'turbulento');
+
+  const warn = document.getElementById('pipe-warn').textContent;
+  assert.match(warn, /«ingresadas»/, 'el aviso nombra el modo activo');
+  assert.match(warn, /Cálculo automático/, 'el aviso indica cómo activar el balance automático');
+
+  assert.equal(document.getElementById('pipe-hf').textContent, '—', 'h_f no se suma en modo ingresadas');
+  assert.equal(document.getElementById('pipe-hm').textContent, '—', 'h_m no se suma en modo ingresadas');
+
+  const auto = document.getElementById('modo-automaticas');
+  auto.checked = true;
+  auto.dispatchEvent(new window.Event('change', { bubbles: true }));
+  await esperarResultado();
+  const fAuto = document.getElementById('pipe-f').textContent;
+  assert.match(fAuto, /Swamee-Jain/, 'en modo automático f sigue calculándose');
+  assert.match(document.getElementById('pipe-hf').textContent, /m$/, 'en modo automático h_f se descompone');
+  assert.match(document.getElementById('pipe-warn').textContent, /—/, 'en modo automático sin advertencias se muestra «—»');
+});
+
+test('auditoría: aviso de continuidad Q/V inconsistente y conflicto con el caudal del panel', async () => {
+  const html = readFileSync(join(root, 'index.html'), 'utf8');
+  const window = new Window({ url: 'http://localhost/' });
+  const document = window.document;
+  document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html[^>]*>/, '').replace(/<\/html>[\s\S]*$/, '');
+  window.innerWidth = 1280;
+  globalThis.window = window;
+  globalThis.document = document;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.HTMLCanvasElement = window.HTMLCanvasElement;
+  globalThis.Node = window.Node;
+  globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+
+  const { initCalculator } = await import('../src/ui/calculator.js');
+  initCalculator();
+
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    el.value = v;
+    el.dispatchEvent(new window.Event('input', { bubbles: true }));
+    el.dispatchEvent(new window.Event('change', { bubbles: true }));
+  };
+
+  const aviso = document.getElementById('puntos-aviso');
+  assert.ok(aviso.classList.contains('hidden'), 'sin inconsistencias el aviso arranca oculto');
+
+  set('p1-z', '10');
+  set('p1-P', '0');
+  set('p1-V', '3.437');
+  set('p1-Q', '50');
+  set('p1-D', '100');
+  await esperarResultado();
+
+  assert.ok(!aviso.classList.contains('hidden'), 'Q=50 L/s con V=3,437 y D=100 mm muestra el aviso de continuidad');
+  assert.match(aviso.textContent, /Punto 1/, 'nombra el punto afectado');
+  assert.match(aviso.textContent, /no cumplen Q = V·A/, 'explica el conflicto de continuidad');
+  assert.match(aviso.textContent, /6,3/, 'indica la velocidad esperada (≈6,37 m/s)');
+
+  set('p1-V', '6.3662');
+  await esperarResultado();
+  assert.ok(aviso.classList.contains('hidden'), 'al corregir V el aviso desaparece');
+
+  document.getElementById('modo-automaticas').checked = true;
+  document.getElementById('modo-automaticas').dispatchEvent(new window.Event('change', { bubbles: true }));
+  document.getElementById('incognita').value = 'Q2';
+  document.getElementById('incognita').dispatchEvent(new window.Event('change', { bubbles: true }));
+  set('pipe-L', '30');
+  set('pipe-eps', '0.15');
+  set('pipe-Q', '45');
+  set('pipe-sumK', '5.65');
+  set('p2-z', '0');
+  set('p2-P', '0');
+  set('p2-D', '100');
+  await esperarResultado();
+
+  const warn = document.getElementById('pipe-warn').textContent;
+  assert.match(warn, /caudal del panel de tubería/, 'adviete del conflicto entre el caudal del panel y la incógnita');
+  assert.match(warn, /acoplar/, 'indica cómo resolverlo (vaciar el campo)');
+});
+
+test('guía: documenta superficies libres, ΣK sin salida y ν por enunciado', async () => {
+  const html = readFileSync(join(root, 'index.html'), 'utf8');
+  const window = new Window({ url: 'http://localhost/' });
+  const document = window.document;
+  document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html[^>]*>/, '').replace(/<\/html>[\s\S]*$/, '');
+  window.innerWidth = 1280;
+  globalThis.window = window;
+  globalThis.document = document;
+  globalThis.HTMLElement = window.HTMLElement;
+  globalThis.HTMLCanvasElement = window.HTMLCanvasElement;
+  globalThis.Node = window.Node;
+  globalThis.getComputedStyle = window.getComputedStyle.bind(window);
+  globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+
+  const { renderGuide } = await import('../src/ui/guide.js');
+  const root2 = document.getElementById('panel-guia');
+  renderGuide(root2);
+  const texto = root2.textContent;
+  assert.match(texto, /superficie libre/i, 'explica modelar superficies libres con V = 0');
+  assert.match(texto, /excluya la pérdida por salida/, 'documenta la convención de la pérdida de salida en ΣK');
+  assert.match(texto, /1×10⁻⁴/, 'recuerda ajustar ν según el enunciado');
+  assert.match(texto, /vacío/, 'aconseja dejar vacío el caudal del panel si Q es incógnita');
+});

@@ -69,6 +69,26 @@ export function renderGuide(root) {
 
     <section class="rounded-md border border-line bg-surface">
       <h2 class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
+        Depósitos abiertos, superficies libres y convención de ΣK
+      </h2>
+      <div class="space-y-2 p-4 text-sm">
+        <ul class="list-disc space-y-1 pl-5">
+          <li>Cada punto de Bernoulli lleva z, P y V propios: un depósito abierto se modela con <strong>P = 0</strong> (manométrica) y <strong>V = 0</strong> (superficie libre). La app respeta el 0 y no lo usa como velocidad de tubería.</li>
+          <li>Si el punto incógnita es la <strong>sección de salida</strong> del tubo en el depósito (P = 0, V ≠ 0), la carga cinética v²/(2g) ya aparece en la energía de ese punto: entonces <strong>excluya la pérdida por salida (K = 1) del ΣK</strong> para no contarla dos veces.</li>
+          <li>Si ambos puntos son superficies libres (V = 0), deje la velocidad del punto incógnita vacía con D relleno y seleccione Q₂ (o V₂): la app acopla las pérdidas a la velocidad derivada del caudal en cada iteración.</li>
+          <li>El caudal del panel de tubería fija la velocidad usada en las pérdidas: déjelo <strong>vacío</strong> si Q o V son la incógnita; si no, la app avisa del conflicto.</li>
+          <li>La viscosidad ν debe coincidir con el enunciado (edítela en «Personalizado» si no hay preset): Re y el factor de fricción dependen directamente de ella.</li>
+        </ul>
+        <p class="text-xs text-ink-soft">
+          Ejemplo tanque elevado → depósito abierto: Δz = 12 m, L = 30 m, D = 100 mm, ε = 0,15 mm,
+          ν = 1×10⁻⁴ m²/s, ΣK = 5,65 (sin la pérdida de salida) → Q ≈ 27 L/s, V ≈ 3,44 m/s
+          (régimen de transición: la app advierte que f es incierto allí).
+        </p>
+      </div>
+    </section>
+
+    <section class="rounded-md border border-line bg-surface">
+      <h2 class="rounded-t-md bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-on-accent">
         Procedimiento para usar la calculadora
       </h2>
       <ol class="list-decimal space-y-1 p-4 pl-8 text-sm">

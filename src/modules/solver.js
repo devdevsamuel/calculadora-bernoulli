@@ -37,8 +37,11 @@ function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
 
-function derivePoint(p) {
+function derivePoint(p, pipe = null) {
   const out = { z: null, P: null, Q: null, D: null, V: null, A: null, ...p };
+  if (out.D == null && pipe?.D != null && pipe.D > 0) {
+    out.D = pipe.D;
+  }
   const aExplicit = out.A != null;
   if (!aExplicit && out.D != null && out.D > 0) {
     out.A = areaFromDiameter(out.D);
@@ -63,7 +66,56 @@ function derivePoint(p) {
 
 function deriveAll(state) {
   const s = cloneState(state);
-  s.points = { 1: derivePoint(s.points[1]), 2: derivePoint(s.points[2]) };
+  const pipe = s.losses?.pipe ?? null;
+  s.points = {
+    1: derivePoint(s.points[1], pipe),
+    2: derivePoint(s.points[2], pipe),
+  };
+  return s;
+}
+
+function isFreeSurface(p) {
+  return p?.V === 0;
+}
+
+function areaOfPoint(p, pipe) {
+  if (p?.A != null && p.A > 0) return p.A;
+  const D = p?.D ?? pipe?.D;
+  if (D != null && D > 0) return areaFromDiameter(D);
+  return null;
+}
+
+export function sectionGeometryKnown(p, pipe) {
+  return areaOfPoint(p, pipe) != null;
+}
+
+/**
+ * Tubería única entre los puntos: si un punto no es superficie libre y no tiene
+ * V fijada, propaga el caudal del otro punto de sección y deriva V = Q/A.
+ * V = 0 explícito se trata como superficie libre y no se sobrescribe.
+ */
+function propagateSectionFlow(state) {
+  const s = state;
+  const pipe = s.losses?.pipe ?? null;
+  const p1 = s.points[1];
+  const p2 = s.points[2];
+  if (isFreeSurface(p1) || isFreeSurface(p2)) return s;
+
+  const propagate = (fromIdx, toIdx) => {
+    const from = s.points[fromIdx];
+    const to = s.points[toIdx];
+    if (isFreeSurface(to) || to.V != null) return;
+    if (!sectionGeometryKnown(to, pipe)) return;
+    const Afrom = areaOfPoint(from, pipe);
+    let Q = null;
+    if (from.Q != null && Number.isFinite(from.Q)) Q = from.Q;
+    else if (from.V != null && Afrom != null) Q = from.V * Afrom;
+    if (Q == null || !Number.isFinite(Q)) return;
+    s.points[toIdx] = derivePoint({ ...to, Q, V: null }, pipe);
+  };
+
+  propagate(1, 2);
+  propagate(2, 1);
   return s;
 }
 
@@ -75,19 +127,38 @@ export function pipeDiameter(state) {
   return null;
 }
 
-export function pipeVelocity(state) {
+function isPipeSectionVelocity(V) {
+  return V != null && Number.isFinite(V) && V !== 0;
+}
+
+export function pipeVelocity(state, { trialV = null } = {}) {
   const pipe = state.losses.pipe;
   if (pipe.V != null) return pipe.V;
   const D = pipeDiameter(state);
   if (pipe.Q != null && D != null && D > 0) {
     return (4 * pipe.Q) / (Math.PI * D * D);
   }
-  if (state.points[2].V != null) return state.points[2].V;
-  if (state.points[1].V != null) return state.points[1].V;
+  const v2 = state.points[2]?.V ?? null;
+  const v1 = state.points[1]?.V ?? null;
+  if (isPipeSectionVelocity(v2)) return v2;
+  if (isPipeSectionVelocity(v1)) return v1;
+  if (trialV != null && Number.isFinite(trialV) && trialV !== 0) return trialV;
   return null;
 }
 
-function resolveHL(state) {
+function trialVelocityFor(state, target, applied) {
+  if (target === 'V1' || target === 'V2') {
+    const idx = target === 'V1' ? 1 : 2;
+    const V = applied.points[idx]?.V ?? null;
+    return V != null && Number.isFinite(V) ? V : null;
+  }
+  if (!/^[QAD][12]$/.test(target ?? '')) return null;
+  const idx = target.endsWith('1') ? 1 : 2;
+  const V = applied.points[idx]?.V ?? null;
+  return V != null && Number.isFinite(V) ? V : null;
+}
+
+function resolveHL(state, { trialV = null } = {}) {
   const { mode, hL, hf, hm, pipe } = state.losses;
   const g = state.fluid.g;
   if (mode === 'ingresadas') {
@@ -97,10 +168,15 @@ function resolveHL(state) {
     }
     return { error: 'Falta h_L (o bien h_f y h_m) en el modo de pérdidas ingresadas.' };
   }
-  const V = pipeVelocity(state);
+  const V = pipeVelocity(state, { trialV });
   const D = pipeDiameter(state);
   if (V == null || D == null) {
     return { error: 'Pérdidas automáticas incompletas: se necesita la velocidad y el diámetro de la tubería.' };
+  }
+  if (V === 0) {
+    return {
+      error: 'La velocidad de la tubería es 0: con V=0 no se pueden calcular las pérdidas automáticas (Re=0). Declare V o Q de la tubería, o use el modo de pérdidas ingresadas.',
+    };
   }
   if (pipe.L == null) {
     return { error: 'Falta la longitud L de la tubería para el cálculo automático de pérdidas.' };
@@ -198,12 +274,34 @@ export function buildModel(state) {
   if (pipeV != null && pipeD != null && s.fluid.nu > 0) {
     const Re = calculateReynolds(pipeV, pipeD, s.fluid.nu);
     const regime = flowRegime(Re);
+    const pipe = s.losses.pipe;
+    let f = null;
+    let fMethod = null;
+    let fWarning = null;
+    try {
+      if (pipe.frictionMethod === 'f ingresado' && pipe.fInput != null) {
+        f = pipe.fInput;
+        fMethod = 'factor de fricción ingresado (Darcy)';
+      } else if (pipe.epsilon != null) {
+        const ff = calculateFrictionFactor(Re, pipe.epsilon, pipeD, pipe.frictionMethod ?? 'auto');
+        f = ff.f;
+        fMethod = ff.method;
+        fWarning = ff.warning;
+      }
+    } catch {
+      f = null;
+      fMethod = null;
+      fWarning = null;
+    }
     pipeInfo = {
       V: pipeV,
       D: pipeD,
       A: areaFromDiameter(pipeD),
       Re,
       regime,
+      f,
+      fMethod,
+      fWarning,
       Q: s.losses.pipe.Q ?? (s.points[2].Q ?? s.points[1].Q ?? pipeV * areaFromDiameter(pipeD)),
     };
   }
@@ -256,6 +354,7 @@ export function applyUnknown(state, target, value) {
     default:
       throw new Error(`Incógnita desconocida: ${target}`);
   }
+  propagateSectionFlow(s);
   return deriveAll(s);
 }
 
@@ -265,6 +364,7 @@ function residual(state, target, value) {
   const e1 = energyComponents(s, 1);
   const e2 = energyComponents(s, 2);
   if (!e1 || !e2) return null;
+  const trialV = trialVelocityFor(state, target, s);
   let loss;
   if (target === 'hL') {
     loss = { hL: value };
@@ -274,7 +374,7 @@ function residual(state, target, value) {
     if (partner == null) return null;
     loss = { hL: value + partner };
   } else {
-    loss = resolveHL(s);
+    loss = resolveHL(s, { trialV });
   }
   if (loss.error) return null;
   const left = e1.H + (s.HB ?? 0);
@@ -473,17 +573,38 @@ function closedForm(state, target) {
       if (hP1 == null) missing.push('presión P1');
       if (p2.z == null) missing.push('cota z2');
       if (hP2 == null) missing.push('presión P2');
-      if (vh2 == null && p2.V == null) {
-        if (p2.V == null) missing.push('velocidad V2 (o caudal Q2 y diámetro D2)');
+      const coupledAuto = s.losses.mode === 'automaticas' && p1.V == null;
+      if (p2.V == null) {
+        const derivable = coupledAuto
+          && !isFreeSurface(p2)
+          && sectionGeometryKnown(p2, s.losses.pipe);
+        if (!derivable) {
+          missing.push('velocidad V2 (o caudal Q2 y diámetro D2; o V2=0 si es superficie de depósito)');
+        }
       }
       if (HB == null) missing.push('carga de bomba H_B');
       if (HT == null) missing.push('carga de turbina H_T');
+      if (coupledAuto) {
+        if (missing.length) return { missing };
+        if (s.losses.pipe?.L == null) missing.push('longitud L de la tubería');
+        if (s.losses.pipe?.epsilon == null) missing.push('rugosidad absoluta ε de la tubería');
+        if (pipeDiameter(s) == null) missing.push('diámetro D de la tubería');
+        if (missing.length) return { missing };
+        return { needsCoupledLosses: true };
+      }
       if (hL == null) missing.push(lossInfo.error ?? 'pérdidas h_L (o datos de tubería)');
       if (missing.length) return { missing };
       const S = e2.H + HT + hL - HB - p1.z - hP1;
       if (S < 0) {
+        const notaSobre = isPipeSectionVelocity(p2.V)
+          ? ` También fijó V₂ = ${nv(p2.V, 5)} m/s como dato: con ambas velocidades fijadas el sistema queda sobre-determinado y el balance exige V₁²/(2g) < 0. `
+            + 'Si V₂ (o Q₂) era la respuesta que esperaba, bórela y selecciónela como incógnita; deje fijas solo las velocidades que sean datos reales del enunciado.'
+          : '';
         return {
-          error: 'El término S es negativo: no existe solución real para V₁ con estos datos (revisar energías y pérdidas).',
+          error: `El término S = ${nv(S)} m es negativo: no existe solución real para V₁ con estos datos. `
+            + `S se evaluó como H₂ (${nv(e2.H)} m) + H_T (${nv(HT)} m) + h_L (${nv(hL)} m) − H_B (${nv(HB)} m) − z₁ (${nv(p1.z)} m) − P₁/γ (${nv(hP1)} m). `
+            + 'Revise el sentido del flujo (¿va 2→1?), las pérdidas, la bomba/turbina y las cotas/presiones; no se asume una velocidad ficticia.'
+            + notaSobre,
         };
       }
       const V1 = Math.sqrt((2 * g * S) / alpha1);
@@ -497,17 +618,40 @@ function closedForm(state, target) {
       const missing = [];
       if (p1.z == null) missing.push('cota z1');
       if (hP1 == null) missing.push('presión P1');
-      if (vh1 == null) missing.push('velocidad V1 (o caudal Q1 y diámetro D1)');
+      const coupledAuto = s.losses.mode === 'automaticas' && p2.V == null;
+      if (p1.V == null) {
+        const derivable = coupledAuto
+          && !isFreeSurface(p1)
+          && sectionGeometryKnown(p1, s.losses.pipe);
+        if (!derivable) {
+          missing.push('velocidad V1 (o caudal Q1 y diámetro D1; o V1=0 si es superficie de depósito)');
+        }
+      }
       if (p2.z == null) missing.push('cota z2');
       if (hP2 == null) missing.push('presión P2');
       if (HB == null) missing.push('carga de bomba H_B');
       if (HT == null) missing.push('carga de turbina H_T');
+      if (coupledAuto) {
+        if (missing.length) return { missing };
+        if (s.losses.pipe?.L == null) missing.push('longitud L de la tubería');
+        if (s.losses.pipe?.epsilon == null) missing.push('rugosidad absoluta ε de la tubería');
+        if (pipeDiameter(s) == null) missing.push('diámetro D de la tubería');
+        if (missing.length) return { missing };
+        return { needsCoupledLosses: true };
+      }
       if (hL == null) missing.push(lossInfo.error ?? 'pérdidas h_L (o datos de tubería)');
       if (missing.length) return { missing };
       const S = p1.z + hP1 + vh1 + HB - HT - hL - p2.z - hP2;
       if (S < 0) {
+        const notaSobre = isPipeSectionVelocity(p1.V)
+          ? ` También fijó V₁ = ${nv(p1.V, 5)} m/s como dato: con ambas velocidades fijadas el sistema queda sobre-determinado y el balance exige V₂²/(2g) < 0. `
+            + 'Si V₁ (o Q₁) era la respuesta que esperaba, bórela y selecciónela como incógnita; deje fijas solo las velocidades que sean datos reales del enunciado.'
+          : '';
         return {
-          error: 'El término S es negativo: no existe solución real para V₂ con estos datos (revisar energías y pérdidas).',
+          error: `El término S = ${nv(S)} m es negativo: no existe solución real para V₂ con estos datos. `
+            + `S se evaluó como z₁ (${nv(p1.z)} m) + P₁/γ (${nv(hP1)} m) + α₁·V₁²/(2g) (${nv(vh1)} m) + H_B (${nv(HB)} m) − H_T (${nv(HT)} m) − h_L (${nv(hL)} m) − z₂ (${nv(p2.z)} m) − P₂/γ (${nv(hP2)} m). `
+            + 'Revise el sentido del flujo (¿va 1→2?), las pérdidas, la bomba/turbina y las cotas/presiones; no se asume una velocidad ficticia.'
+            + notaSobre,
         };
       }
       const V2 = Math.sqrt((2 * g * S) / alpha2);
@@ -528,6 +672,15 @@ function closedForm(state, target) {
       const p = s.points[idx];
       const vel = closedForm(s, `V${idx}`);
       if (vel.error || vel.missing) return vel;
+      if (vel.needsCoupledLosses) {
+        if (kind === 'Q' || kind === 'D') {
+          if (p.D == null && kind === 'Q') return { missing: [`área A${idx} o diámetro D${idx}`] };
+          if (kind === 'D' && p.Q == null) return { missing: [`caudal Q${idx}`] };
+          if (kind === 'Q' && p.D == null && p.A == null) return { missing: [`área A${idx} o diámetro D${idx}`] };
+        }
+        if (kind === 'A' && p.Q == null) return { missing: [`caudal Q${idx}`] };
+        return { needsCoupledLosses: true };
+      }
       const V = vel.value;
       if (kind === 'Q') {
         if (p.A == null) return { missing: [`área A${idx} o diámetro D${idx}`] };
@@ -884,7 +1037,8 @@ export function solve(state) {
     return failureResult({ status: STATUS.INVALIDO, target, state, error: err.message });
   }
   const base = closedForm(state, target);
-  if (!NUMERIC_TARGETS.has(target)) {
+  const acoplada = base.needsCoupledLosses === true;
+  if (!NUMERIC_TARGETS.has(target) && !acoplada) {
     if (base.missing) {
       return failureResult({
         status: classifyFailure({ missing: base.missing, error: base.error }),
@@ -905,7 +1059,16 @@ export function solve(state) {
       });
     }
   }
-  if (base.value !== undefined && Number.isFinite(base.value)) {
+  if (base.missing && acoplada) {
+    return failureResult({
+      status: classifyFailure({ missing: base.missing }),
+      target,
+      state,
+      model,
+      missing: base.missing,
+    });
+  }
+  if (!acoplada && base.value !== undefined && Number.isFinite(base.value)) {
     if (DIRECT_TARGETS.has(target)) {
       return successResult({
         state,
@@ -939,6 +1102,15 @@ export function solve(state) {
       });
     }
   }
+  if (!acoplada && base.error && base.value === undefined && !base.missing) {
+    return failureResult({
+      status: classifyFailure({ error: base.error }),
+      target,
+      state,
+      model,
+      error: base.error,
+    });
+  }
   const range = rangeForTarget(target);
   if (!range) {
     const error = base.error ?? 'No se pudo resolver la incógnita con los datos disponibles.';
@@ -962,7 +1134,8 @@ export function solve(state) {
   }
   const result = bisect(state, target, range);
   if (result.error) {
-    if (base.missing) {
+    const falloFisico = /No existe solución física en el rango/.test(result.error);
+    if (base.missing && !falloFisico) {
       return failureResult({
         status: classifyFailure({ missing: base.missing }),
         target,
@@ -971,13 +1144,16 @@ export function solve(state) {
         missing: base.missing,
       });
     }
-    const error = base.error ?? result.error;
+    const error = falloFisico
+      ? `${result.error} Con pérdida automática h_L(V) la incógnita de velocidad/caudal se resuelve por bisección; si el residuo no cambia de signo en el rango, no hay flujo físico admisible con estos datos (revise cotas, presiones, bomba/turbina, pérdidas y sentido 1→2).`
+      : (base.error ?? result.error);
     return failureResult({
       status: classifyFailure({ error }),
       target,
       state,
       model,
       error,
+      missing: falloFisico ? undefined : (base.missing ?? null),
     });
   }
   const cf = closedForm(applyUnknown(state, target, result.value), target);

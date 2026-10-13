@@ -4,6 +4,7 @@ let perfilChart = null;
 let barrasChart = null;
 let perdidasChart = null;
 let tema = 'light';
+let modoCaptura = false;
 
 const PALETTAS = {
   light: {
@@ -44,6 +45,10 @@ const PALETTAS = {
 
 export function setChartTheme(nuevo) {
   tema = nuevo === 'dark' ? 'dark' : 'light';
+}
+
+export function setModoCaptura(activo) {
+  modoCaptura = !!activo;
 }
 
 const P = () => PALETTAS[tema];
@@ -129,7 +134,7 @@ const pluginCrosshair = {
 };
 
 function animacionEntrada({ stagger = false } = {}) {
-  if (prefiereReducedMotion()) return false;
+  if (modoCaptura || prefiereReducedMotion()) return false;
   const anim = { duration: 500, easing: 'easeOutQuart' };
   if (stagger) {
     anim.delay = (ctx) => {
@@ -237,7 +242,7 @@ export function updatePerfilChart({ z, hgl, egl, labels, xIsLinear, empty }) {
   const options = baseOptions('Perfil de cargas en los dos puntos (m)', {
     xTitle: xIsLinear ? 'Distancia desde el punto 1 (m)' : 'Punto',
   });
-  if (!prefiereReducedMotion()) {
+  if (!modoCaptura && !prefiereReducedMotion()) {
     options.animations = {
       radius: { from: 0, duration: 450, easing: 'easeOutCubic' },
     };

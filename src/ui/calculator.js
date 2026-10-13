@@ -18,7 +18,10 @@ const $ = (id) => document.getElementById(id);
 let accesorios = [];
 let debounceTimer = null;
 let lastResult = null;
+let ultimoInforme = null;
 let countUpId = null;
+
+const ESTADO_BASE = 'rounded px-3 py-1.5 text-sm font-semibold w-full min-h-12 md:w-72 flex items-center';
 
 function cancelarResultadoAnimado() {
   if (countUpId != null) {
@@ -104,23 +107,9 @@ function clearFieldError(el) {
   }
 }
 
-function markInvalid(el, message) {
+function markInvalid(el) {
   if (!el) return;
   el.setAttribute('aria-invalid', 'true');
-  if (!message) return;
-  let span = el.dataset.msgError ? document.getElementById(el.dataset.msgError) : null;
-  if (!span) {
-    span = document.createElement('span');
-    span.id = `error-${el.id || 'campo'}`;
-    span.className = 'msg-error';
-    const ancla = el.parentElement?.classList?.contains('flex') ? el.parentElement : el;
-    ancla.insertAdjacentElement('afterend', span);
-    el.dataset.msgError = span.id;
-    el.dataset.descOriginal = el.getAttribute('aria-describedby') ?? '';
-    const prev = el.getAttribute('aria-describedby');
-    el.setAttribute('aria-describedby', prev ? `${prev} ${span.id}` : span.id);
-  }
-  span.innerHTML = `<span aria-hidden="true">⚠ </span>${escapeHtml(message)}`;
 }
 
 function formatInput(value, digits = 6) {
@@ -157,11 +146,13 @@ function renderAccesorios() {
   accesorios.forEach((acc, i) => {
     const li = document.createElement('li');
     li.className = 'flex flex-wrap items-center gap-2';
+    const kTexto = acc.K == null || Number.isNaN(acc.K) ? '' : String(acc.K);
+    const nTexto = acc.n == null || Number.isNaN(acc.n) ? '' : String(acc.n);
     li.innerHTML = `
       <input type="text" class="campo-editable w-40" data-campo="nombre" data-i="${i}" value="${escapeHtml(acc.nombre)}" aria-label="Nombre del accesorio ${i + 1}" placeholder="Nombre" />
-      <input type="number" min="1" step="1" class="campo-editable w-20" data-campo="n" data-i="${i}" value="${escapeHtml(acc.n)}" aria-label="Cantidad del accesorio ${i + 1}" />
-      <input type="number" step="any" min="0" class="campo-editable w-24" data-campo="K" data-i="${i}" value="${escapeHtml(acc.K)}" aria-label="Coeficiente K del accesorio ${i + 1}" />
-      <span class="text-xs text-ink-soft">(n·K = ${formatNumber(acc.n * acc.K)})</span>
+      <input type="text" inputmode="numeric" class="campo-editable w-20" data-campo="n" data-i="${i}" value="${escapeHtml(nTexto)}" aria-label="Cantidad del accesorio ${i + 1}" placeholder="n" />
+      <input type="text" inputmode="decimal" class="campo-editable w-24" data-campo="K" data-i="${i}" value="${escapeHtml(kTexto)}" aria-label="Coeficiente K del accesorio ${i + 1}" placeholder="K" />
+      <span class="text-xs text-ink-soft">(n·K = ${formatNumber((Number(acc.n) || 0) * (Number(acc.K) || 0))})</span>
       <button type="button" class="min-h-9 rounded border border-err-text px-2 py-1 text-xs font-semibold text-err-text hover:bg-err-bg sm:min-h-0 sm:py-0.5" data-quitar="${i}" aria-label="Quitar accesorio ${i + 1}"><span aria-hidden="true">×</span></button>
     `;
     lista.appendChild(li);
@@ -417,7 +408,38 @@ function readState() {
     },
     unknown: $('incognita').value,
   };
-  return { state, errors, gamma };
+  return { state, errors, gamma, warnings: avisosContinuidad(state) };
+}
+
+function avisosContinuidad(state) {
+  const avisos = [];
+  for (const idx of [1, 2]) {
+    const p = state.points[idx];
+    if (!p || p.V == null || p.Q == null || p.D == null) continue;
+    if (!(p.V > 0) || !(p.Q > 0) || !(p.D > 0)) continue;
+    const vEsperada = (4 * p.Q) / (Math.PI * p.D * p.D);
+    const desviacion = Math.abs(vEsperada - p.V) / Math.max(vEsperada, p.V);
+    if (desviacion > 0.01) {
+      avisos.push(
+        `Punto ${idx}: Q = ${formatNumber(p.Q * 1000, 3)} L/s y V = ${formatNumber(p.V, 4)} m/s `
+        + `no cumplen Q = V·A con D = ${formatNumber(p.D * 1000, 1)} mm `
+        + `(V esperada ≈ ${formatNumber(vEsperada, 4)} m/s). Corrija uno de los valores.`,
+      );
+    }
+  }
+  return avisos;
+}
+
+function setPuntosAviso(avisos) {
+  const el = $('puntos-aviso');
+  if (!el) return;
+  if (!avisos || avisos.length === 0) {
+    el.textContent = '';
+    el.classList.add('hidden');
+    return;
+  }
+  el.textContent = avisos.join(' ');
+  el.classList.remove('hidden');
 }
 
 function unknownInputId(target) {
@@ -466,15 +488,21 @@ function renderAlerts(errors, result) {
   const items = [...errors];
   if (result?.missing) items.push(...result.missing.map((m) => `Falta: ${m}. Complete ese dato en el formulario.`));
   if (result?.error) items.push(result.error);
-  if (items.length === 0) return;
+  if (items.length === 0) {
+    box.classList.add('hidden');
+    return;
+  }
+  box.classList.remove('hidden');
+  const plural = items.length === 1 ? 'aviso' : 'avisos';
   const div = document.createElement('div');
   div.className = 'estado-error rounded px-3 py-2 text-sm';
   div.setAttribute('role', 'alert');
-  div.innerHTML = `<strong class="font-bold">Revise los datos:</strong>
-    <ul class="mt-1 list-disc pl-5">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
-    <p class="mt-1 text-xs">Cada campo con un valor incorrecto muestra además su propio mensaje justo debajo,
-    con la forma de corregirlo; no basta con cambiar el color.</p>`;
+  div.innerHTML = `<strong class="font-bold">Revise los datos (${items.length} ${plural}):</strong>
+    <ul class="lista-alertas mt-1 max-h-24 overflow-y-auto overscroll-contain list-disc pl-5 pr-1">${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>
+    <p class="mt-1 text-xs">El resultado y las gráficas se limpian hasta que el cálculo vuelva a ser válido. Los campos incorrectos quedan resaltados en el formulario.</p>`;
   box.appendChild(div);
+  const lista = div.querySelector('.lista-alertas');
+  if (lista) lista.scrollTop = 0;
 }
 
 function setEstado(texto, clase, textoOculto) {
@@ -486,7 +514,7 @@ function setEstado(texto, clase, textoOculto) {
     span.textContent = textoOculto;
     estado.appendChild(span);
   }
-  estado.className = `rounded px-3 py-1.5 text-sm font-semibold ${clase}`;
+  estado.className = `${ESTADO_BASE} ${clase}`;
 }
 
 function renderEmptyOutputs(estadoTexto, estadoCls) {
@@ -495,7 +523,7 @@ function renderEmptyOutputs(estadoTexto, estadoCls) {
   $('resultado-unidad').textContent = '';
   const estado = $('resultado-estado');
   estado.textContent = estadoTexto;
-  estado.className = `rounded px-3 py-1.5 text-sm font-semibold ${estadoCls}`;
+  estado.className = `${ESTADO_BASE} ${estadoCls}`;
   $('procedimiento-formula').textContent = '—';
   $('procedimiento-sustitucion').textContent = '—';
   $('procedimiento-resultado').textContent = '—';
@@ -521,6 +549,49 @@ function renderEmptyOutputs(estadoTexto, estadoCls) {
   safeChart(() => updatePerfilChart({ z: [null, null], hgl: [null, null], egl: [null, null], labels: [], empty: true }));
   safeChart(() => updateBarrasChart({ z: [null, null], hP: [null, null], hV: [null, null], H: [null, null], empty: true }));
   safeChart(() => updatePerdidasChart({ hf: null, hm: null, hL: null, empty: true }));
+}
+
+function resetResultUI({
+  estadoTexto,
+  estadoCls,
+  state = null,
+  faltantes = [],
+  errores = [],
+  exp = null,
+  status = null,
+  model = null,
+}) {
+  clearComputedCell(state?.unknown);
+  renderEmptyOutputs(estadoTexto, estadoCls);
+  $('resultado-descripcion').textContent =
+    (UNKNOWN_OPTIONS.find((o) => o.id === state?.unknown)?.label) ?? 'Resultado';
+  if (exp) {
+    $('procedimiento-formula').textContent = exp?.equation?.general ?? '—';
+    $('procedimiento-despeje').innerHTML = (exp?.procedure?.symbolic ?? [])
+      .map((line) => `<li>${escapeHtml(line)}</li>`).join('');
+    $('procedimiento-operaciones').innerHTML = (exp?.operations ?? [])
+      .map((op) => `<li>${escapeHtml(op)}</li>`).join('');
+    $('procedimiento-notas').innerHTML = failureNotes(exp).map((n) => `<li>${escapeHtml(n)}</li>`).join('');
+  }
+  if (model) {
+    try {
+      renderModelTables(model, state, exp);
+    } catch {
+      $('valores-usados').innerHTML = '<li class="text-ink-soft">Sin resultado válido con los datos actuales.</li>';
+    }
+  } else {
+    $('valores-usados').innerHTML = '<li class="text-ink-soft">Sin resultado válido con los datos actuales.</li>';
+  }
+  ultimoInforme = construirSnapshot({
+    valido: false,
+    estado: estadoTexto,
+    status,
+    faltantes,
+    errores,
+    state,
+    model: model ?? null,
+    exp,
+  });
 }
 
 function resultUnit(target, state, model) {
@@ -594,6 +665,14 @@ function writeComputedCell(target, value, state) {
   el.value = formatInput(disp, target === 'Re' ? 0 : 6);
 }
 
+function clearComputedCell(target) {
+  const id = unknownInputId(target);
+  if (!id) return;
+  const el = $(id);
+  if (!el) return;
+  el.value = '';
+}
+
 function applyFluidPreset() {
   const p = presetById($('gen-fluido').value);
   if (!p) return;
@@ -625,8 +704,8 @@ function safeChart(fn) {
   }
 }
 
-function formatDataLi(entry, state) {
-  const { key, symbol, value, unit, source, note, decimals } = entry;
+export function formatearDato(entry, state) {
+  const { key, value, unit, source, note, decimals } = entry;
   let v = value;
   let u = unit;
   if (value != null) {
@@ -662,9 +741,18 @@ function formatDataLi(entry, state) {
   } else {
     shown = formatNumber(v, dec);
   }
-  const src = SOURCE_LABELS[source] ?? source;
-  const noteTxt = note ? ` (${note})` : '';
-  return `<span class="font-semibold">${symbol}</span> = ${shown} ${u} · ${src}${noteTxt}`;
+  return {
+    texto: shown,
+    unidad: u,
+    origen: SOURCE_LABELS[source] ?? source,
+    nota: note ?? null,
+  };
+}
+
+function formatDataLi(entry, state) {
+  const d = formatearDato(entry, state);
+  const noteTxt = d.nota ? ` (${d.nota})` : '';
+  return `<span class="font-semibold">${entry.symbol}</span> = ${d.texto} ${d.unidad} · ${d.origen}${noteTxt}`;
 }
 
 function failureNotes(exp) {
@@ -754,6 +842,7 @@ function renderModelTables(model, state, explanation) {
 
   const loss = model.losses;
   const pipeRes = loss.pipe ?? null;
+  const infoTuberia = model.pipe ?? null;
   if (loss.error) {
     for (const id of ['pipe-hf', 'pipe-hm', 'pipe-hL']) $(id).textContent = '—';
     $('pipe-warn').textContent = loss.error;
@@ -761,9 +850,16 @@ function renderModelTables(model, state, explanation) {
     $('pipe-hf').textContent = loss.hf != null ? `${formatNumber(loss.hf)} m` : '—';
     $('pipe-hm').textContent = loss.hm != null ? `${formatNumber(loss.hm)} m` : '—';
     $('pipe-hL').textContent = `${formatNumber(loss.hL)} m`;
-    $('pipe-warn').textContent = loss.source === 'automática'
-      ? (pipeRes?.warning ?? '—')
-      : `Pérdidas ingresadas por el usuario (fuente: ${loss.source}).`;
+    if (loss.source === 'automática') {
+      $('pipe-warn').textContent = pipeRes?.warning ?? '—';
+    } else if (infoTuberia?.f != null) {
+      $('pipe-warn').textContent =
+        `Modo «ingresadas»: el balance usa el h_L ingresado; f y Re se muestran como referencia. ` +
+        'Active «Cálculo automático» para que las pérdidas de fricción entren al balance.' +
+        (infoTuberia.fWarning ? ` ${infoTuberia.fWarning}` : '');
+    } else {
+      $('pipe-warn').textContent = `Pérdidas ingresadas por el usuario (fuente: ${loss.source}).`;
+    }
   }
   if (!loss.error && loss.hf != null && loss.hm != null && loss.hL != null) {
     safeChart(() => updatePerdidasChart({ hf: loss.hf, hm: loss.hm, hL: loss.hL, empty: false }));
@@ -787,15 +883,30 @@ function renderModelTables(model, state, explanation) {
       $('pipe-warn').textContent = pipeRes.warning;
     }
   } else if (!loss.error) {
-    const info = model.pipe;
+    const info = infoTuberia;
     if (info) {
       $('pipe-V').textContent = `${formatNumber(info.V, 5)} m/s`;
       $('pipe-A').textContent = `${formatNumber(info.A, 6)} m²`;
       $('pipe-Re').textContent = formatNumber(info.Re, 0);
       $('pipe-regimen').textContent = info.regime;
+      $('pipe-f').textContent = info.f != null
+        ? `${formatNumber(info.f, 6)} (${info.fMethod})`
+        : '—';
     } else {
       for (const id of ['pipe-V', 'pipe-A', 'pipe-Re', 'pipe-regimen', 'pipe-f']) $(id).textContent = '—';
     }
+  }
+  if (state?.losses?.pipe?.Q != null && /^(Q|V|D|A)[12]$/.test(state.unknown ?? '')) {
+    let caudalPanel = '';
+    try {
+      caudalPanel = ` (${formatNumber(fromSI(state.losses.pipe.Q, 'L/s', 'flow'), 3)} L/s)`;
+    } catch {
+      caudalPanel = '';
+    }
+    const conflicto = `El caudal del panel de tubería${caudalPanel} fija la velocidad usada en las pérdidas; `
+      + 'si la incógnita es Q, V, D o A del punto, vacíe ese campo para acoplar el balance con las pérdidas.';
+    const prev = $('pipe-warn').textContent;
+    $('pipe-warn').textContent = (!prev || prev === '—') ? conflicto : `${prev} ${conflicto}`;
   }
 
   const usados = [];
@@ -869,14 +980,63 @@ function renderModelTables(model, state, explanation) {
   }
 }
 
+function construirSnapshot({
+  valido,
+  estado,
+  status = null,
+  errores = [],
+  faltantes = [],
+  state,
+  model = null,
+  exp = null,
+  valor = null,
+  unidad = '',
+  decimales = 4,
+  numerico = false,
+  resultadoSI = null,
+}) {
+  return {
+    valido,
+    estado,
+    status,
+    errores: [...errores],
+    faltantes: [...faltantes],
+    incognita: state?.unknown ?? null,
+    etiqueta: UNKNOWN_OPTIONS.find((o) => o.id === state?.unknown)?.label ?? 'Resultado',
+    valor,
+    unidad,
+    decimales,
+    numerico,
+    resultadoSI,
+    state,
+    model,
+    exp,
+    fecha: new Date().toISOString(),
+  };
+}
+
 function calculate() {
-  const { state, errors } = readState();
+  const { state, errors, warnings } = readState();
+  setPuntosAviso(warnings);
   $('gen-gamma').value = formatInput(state.fluid.rho * state.fluid.g, 2);
 
   if (errors.length > 0) {
-    renderAlerts(errors, null);
-    renderEmptyOutputs('Corrija los campos marcados para calcular.', 'estado-error');
-    lastResult = null;
+    let faltantes = [];
+    try {
+      const probe = solve(state);
+      if (!probe.ok) faltantes = probe.missing ?? [];
+    } catch {
+      /* con datos inválidos el solucionador puede fallar: se muestran solo los errores de campo */
+    }
+    resetResultUI({
+      estadoTexto: 'Datos inválidos: revise los campos marcados en el formulario.',
+      estadoCls: 'estado-error',
+      state,
+      faltantes,
+      errores: errors,
+      status: 'invalido',
+    });
+    renderAlerts(errors, faltantes.length ? { missing: faltantes } : null);
     return;
   }
 
@@ -892,28 +1052,16 @@ function calculate() {
       invalido: 'Datos inválidos: revise los campos.',
     };
     const texto = statusText[result.status] ?? 'Sin solución con los datos actuales.';
-    setEstado(
-      texto,
-      `rounded px-3 py-1.5 text-sm font-semibold ${result.status === 'insuficiente' ? 'estado-aviso' : 'estado-error'}`,
-    );
-    $('resultado-valor').textContent = '—';
-    cancelarResultadoAnimado();
-    $('resultado-unidad').textContent = '';
-    $('resultado-descripcion').textContent =
-      (UNKNOWN_OPTIONS.find((o) => o.id === state.unknown)?.label) ?? 'Resultado';
-    $('procedimiento-formula').textContent = exp?.equation?.general ?? '—';
-    $('procedimiento-despeje').innerHTML = (exp?.procedure?.symbolic ?? [])
-      .map((line) => `<li>${escapeHtml(line)}</li>`).join('');
-    $('procedimiento-conversiones').innerHTML = '';
-    $('procedimiento-sustitucion').textContent = '—';
-    $('procedimiento-resultado').textContent = '—';
-    $('procedimiento-operaciones').innerHTML = (exp?.operations ?? []).map((op) => `<li>${escapeHtml(op)}</li>`).join('');
-    $('procedimiento-notas').innerHTML = failureNotes(exp).map((n) => `<li>${escapeHtml(n)}</li>`).join('');
-    if (result.model) {
-      renderModelTables(result.model, state, exp);
-    } else {
-      $('valores-usados').innerHTML = '<li class="text-ink-soft">Sin datos válidos que mostrar.</li>';
-    }
+    resetResultUI({
+      estadoTexto: texto,
+      estadoCls: result.status === 'insuficiente' ? 'estado-aviso' : 'estado-error',
+      state,
+      faltantes: result.missing ?? [],
+      errores: result.error ? [result.error] : [],
+      exp,
+      status: result.status ?? null,
+      model: result.model ?? null,
+    });
     return;
   }
 
@@ -945,7 +1093,7 @@ function calculate() {
     textoEstado = 'Resultado por solucionador numérico · balance verificado';
   }
   const valorVisible = `${label} = ${formatNumber(disp, state.unknown === 'Re' ? 0 : 4)}${unit ? ` ${unit}` : ''}`;
-  setEstado(textoEstado, 'rounded px-3 py-1.5 text-sm font-semibold estado-ok', `: ${valorVisible}`);
+  setEstado(textoEstado, 'estado-ok', `: ${valorVisible}`);
 
   const proc = exp?.procedure;
   const decimals = state.unknown === 'Re' ? 0 : 4;
@@ -969,6 +1117,19 @@ function calculate() {
 
   writeComputedCell(state.unknown, result.value, displayState);
   renderModelTables(displayModel, displayState, exp);
+  ultimoInforme = construirSnapshot({
+    valido: true,
+    estado: textoEstado,
+    status: result.status ?? 'unico',
+    state: displayState,
+    model: displayModel,
+    exp,
+    valor: disp,
+    unidad: unit,
+    decimales: decimals,
+    numerico: !!result.numerical,
+    resultadoSI: result.unit ? { valor: result.value, unidad: result.unit } : null,
+  });
 }
 
 function scheduleCalculate() {
@@ -1204,7 +1365,35 @@ export function initCalculator() {
     }
     const campo = t.dataset.campo;
     if (!campo) return;
-    accesorios[i][campo] = campo === 'nombre' ? t.value : Number(t.value);
+    if (campo === 'nombre') {
+      accesorios[i].nombre = t.value;
+      scheduleCalculate();
+      return;
+    }
+    const r = readNumber(t);
+    if (r.error || r.value == null) {
+      markInvalid(t);
+      scheduleCalculate();
+      return;
+    }
+    if (campo === 'n') {
+      if (r.value < 1 || !Number.isInteger(r.value)) {
+        markInvalid(t);
+        scheduleCalculate();
+        return;
+      }
+      accesorios[i].n = r.value;
+    } else if (campo === 'K') {
+      if (r.value < 0) {
+        markInvalid(t);
+        scheduleCalculate();
+        return;
+      }
+      accesorios[i].K = r.value;
+    } else {
+      return;
+    }
+    clearFieldError(t);
     if (accesorios.length > 0) {
       const sumK = accesorios.reduce((s, a) => s + (Number(a.n) || 0) * (Number(a.K) || 0), 0);
       $('pipe-sumK').value = formatInput(sumK);
@@ -1228,4 +1417,8 @@ export function initCalculator() {
 
 export function refreshView() {
   calculate();
+}
+
+export function obtenerSnapshotInforme() {
+  return ultimoInforme;
 }

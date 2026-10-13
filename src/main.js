@@ -4,6 +4,7 @@ import { renderGuide } from './ui/guide.js';
 import { setupTabs } from './ui/tabs.js';
 import { initTheme } from './ui/theme.js';
 import { resizeCharts } from './ui/chart.js';
+import { initInforme } from './ui/report.js';
 
 renderGuide(document.getElementById('panel-guia'));
 setupTabs();
@@ -12,3 +13,4 @@ document.getElementById('tab-calculadora')?.addEventListener('click', () => {
 });
 initTheme({ onToggle: () => refreshView() });
 initCalculator();
+initInforme();
