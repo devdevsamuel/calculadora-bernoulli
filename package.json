@@ -3,12 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "description": "Calculadora universal de la ecuación de Bernoulli para ingeniería civil",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test"
+    "test": "node --test",
+    "electron:dev": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac"
   },
   "dependencies": {
     "chart.js": "^4.5.1",
@@ -16,8 +20,13 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
     "happy-dom": "^20.14.6",
     "tailwindcss": "^4.3.3",
     "vite": "^6.4.4"
+  },
+  "overrides": {
+    "@noble/hashes": "1.8.0"
   }
 }

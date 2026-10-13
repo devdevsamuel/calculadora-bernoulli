@@ -1,0 +1,31 @@
+appId: com.devsamuel.calculadora-bernoulli
+productName: Calculadora Bernoulli
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  - "!**/node_modules/**"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Calculadora Bernoulli
+  installerLanguages:
+    - es-ES
+
+artifactName: Calculadora-Bernoulli-Setup-${version}.exe
